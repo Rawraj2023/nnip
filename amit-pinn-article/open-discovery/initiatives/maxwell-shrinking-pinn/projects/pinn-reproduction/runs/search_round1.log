@@ -1,0 +1,2 @@
+candidate-001 smoke valid=True
+round-1 runner stopped after candidate-001 by request; queue moved to runs/queue_round2.sh (005 first)

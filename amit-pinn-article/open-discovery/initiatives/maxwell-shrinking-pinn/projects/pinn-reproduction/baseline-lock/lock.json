@@ -1,0 +1,68 @@
+{
+  "baseline": {
+    "manifest": [
+      {
+        "bytes": 12624,
+        "path": "pinn_maxwell_shrinking.py",
+        "sha256": "8f145d68377b7be4bbbc73fc7d643d745ef063e4156be2c7fea089016176b180",
+        "type": "file"
+      }
+    ],
+    "sha256": "40d7e8611b8d417153eea254e7531eb5017b1502edd2a7fd5ed174234ae8c281",
+    "snapshot": "baseline\\pinn_maxwell_shrinking.py",
+    "source": "C:\\Users\\LENOVO\\Downloads\\amit-pinn-article\\open-discovery\\initiatives\\maxwell-shrinking-pinn\\projects\\pinn-reproduction\\baseline\\pinn_maxwell_shrinking.py"
+  },
+  "created_utc": "2026-11-05T14:18:20.146502+00:00",
+  "environment": {
+    "platform": "Windows-10-10.0.19045-SP0",
+    "python": "3.13.7 (tags/v3.13.7:bcee1c3, Aug 14 2025, 14:15:11) [MSC v.1944 64 bit (AMD64)]"
+  },
+  "error": null,
+  "evaluator": {
+    "command": [
+      "C:\\Users\\LENOVO\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "C:\\Users\\LENOVO\\Downloads\\amit-pinn-article\\open-discovery\\initiatives\\maxwell-shrinking-pinn\\projects\\pinn-reproduction\\evaluator.py",
+      "C:\\Users\\LENOVO\\Downloads\\amit-pinn-article\\open-discovery\\initiatives\\maxwell-shrinking-pinn\\projects\\pinn-reproduction\\baseline-lock\\baseline\\pinn_maxwell_shrinking.py"
+    ],
+    "elapsed_seconds": 140.41496709999956,
+    "metrics": {
+      "failures": [],
+      "improved": false,
+      "metrics": {
+        "mode": "smoke",
+        "smoke": {
+          "elapsed_seconds": 126.81074309999985,
+          "failures": [],
+          "lower": {
+            "Cf": 0.7721875368752108,
+            "Nu": 1.202526535408011,
+            "f2": 0.7019886698865552,
+            "theta1": -1.202526535408011
+          },
+          "upper": {
+            "Cf": 1.9125139386988093,
+            "Nu": 1.8539980371774412,
+            "f2": 1.7386490351807355,
+            "theta1": -1.8539980371774412
+          }
+        }
+      },
+      "objective": {
+        "baseline_value": 126.81074309999985,
+        "direction": "minimize",
+        "name": "elapsed_seconds",
+        "value": 126.81074309999985
+      },
+      "status": "SUPPORTED",
+      "valid": true
+    },
+    "returncode": 0,
+    "sha256": "e99f0be74b50d55d74e5e8a383fa7ec78520f8829d58c8ce7cf649dccdd940eb",
+    "snapshot": "evaluator\\evaluator.py",
+    "source": "C:\\Users\\LENOVO\\Downloads\\amit-pinn-article\\open-discovery\\initiatives\\maxwell-shrinking-pinn\\projects\\pinn-reproduction\\evaluator.py",
+    "timed_out": false
+  },
+  "goal": "reproduce Pandey et al. Forces in Mechanics 100352 Maxwell-fluid shrinking-sheet dual-solution/stability PINN; evolve-program search target: reduce CPU training wall-clock while keeping full-mode Table 1/2(/3) accuracy within tolerance of the paper's published values",
+  "schema_version": 1,
+  "status": "locked"
+}

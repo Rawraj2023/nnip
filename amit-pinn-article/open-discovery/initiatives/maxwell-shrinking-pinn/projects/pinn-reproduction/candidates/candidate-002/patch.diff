@@ -1,0 +1,20 @@
+115c115,118
+<     opt2 = torch.optim.LBFGS(params, lr=1.0, max_iter=lbfgs_iters, tolerance_grad=1e-12,
+---
+>     # candidate-002: same LBFGS, run in chunks (optimizer state/history persists across
+>     # step() calls); stop once a chunk improves the loss by < 1 %, never exceed lbfgs_iters.
+>     CHUNK, REL = 50, 0.01
+>     opt2 = torch.optim.LBFGS(params, lr=1.0, max_iter=CHUNK, tolerance_grad=1e-12,
+120c123,132
+<     opt2.step(closure)
+---
+>     prev = loss_fn(10**9).item()
+>     done = 0
+>     while done < lbfgs_iters:
+>         opt2.param_groups[0]["max_iter"] = min(CHUNK, lbfgs_iters - done)
+>         opt2.step(closure)
+>         done += CHUNK
+>         cur = loss_fn(10**9).item()
+>         if not (cur < prev * (1 - REL)):
+>             break
+>         prev = cur

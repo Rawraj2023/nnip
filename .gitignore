@@ -1,0 +1,4 @@
+# 6.7 GB GPU venv (torch 2.14.1+cu126) - too large for GitHub; rebuild from
+# amit-pinn-article/requirements-gpu-cu126.txt
+.venv-pinn/
+__pycache__/

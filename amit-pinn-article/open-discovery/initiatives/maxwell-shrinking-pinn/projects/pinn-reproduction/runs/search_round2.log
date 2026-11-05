@@ -1,0 +1,34 @@
+candidates/candidate-001/full.json: valid=False improved=False objective=823.5s (baseline 1451.8s) failures=['upper_alpha1_rel_err 9.1767% exceeds tol 1.0000%', 'lower_alpha1_rel_err 1195.6943% exceeds tol 1.0000%']
+  table1/2 269.4s  lower_Cf_rel_err=0.3913%  lower_Nu_rel_err=0.3848%  upper_Cf_rel_err=0.0020%  upper_Nu_rel_err=0.3692%
+  upper: Cf=1.935192 (vs eta_inf->inf oracle 0.003%)  Nu=3.345679 (0.168%)
+  lower: Cf=0.755385 (vs eta_inf->inf oracle 0.223%)  Nu=3.132180 (0.103%)
+  fold 242.9s  S_c=1.85201 err=0.702%
+  stability 311.2s  a_up=0.961903 a_lo=-0.488122 lower_alpha1_rel_err=1195.694% upper_alpha1_rel_err=9.177%
+candidate-005 smoke valid=True
+candidates/candidate-005/full.json: valid=False improved=False objective=503.5s (baseline 1451.8s) failures=['upper_alpha1_rel_err 19.3145% exceeds tol 1.0000%', 'lower_alpha1_rel_err 1195.5749% exceeds tol 1.0000%']
+  table1/2 155.8s  lower_Cf_rel_err=0.4255%  lower_Nu_rel_err=0.3904%  upper_Cf_rel_err=0.0408%  upper_Nu_rel_err=0.2740%
+  upper: Cf=1.934442 (vs eta_inf->inf oracle 0.042%)  Nu=3.348876 (0.073%)
+  lower: Cf=0.755643 (vs eta_inf->inf oracle 0.257%)  Nu=3.132005 (0.108%)
+  fold 158.5s  S_c=1.84947 err=0.564%
+  stability 189.2s  a_up=1.051222 a_lo=-0.488077 lower_alpha1_rel_err=1195.575% upper_alpha1_rel_err=19.314%
+candidate-002 smoke valid=True
+candidates/candidate-002/full.json: valid=False improved=False objective=967.7s (baseline 1451.8s) failures=['upper_alpha1_rel_err 19.4758% exceeds tol 1.0000%', 'lower_alpha1_rel_err 1197.8728% exceeds tol 1.0000%']
+  table1/2 297.9s  lower_Cf_rel_err=0.3309%  lower_Nu_rel_err=0.4092%  upper_Cf_rel_err=0.0042%  upper_Nu_rel_err=0.3473%
+  upper: Cf=1.935150 (vs eta_inf->inf oracle 0.006%)  Nu=3.346415 (0.146%)
+  lower: Cf=0.754931 (vs eta_inf->inf oracle 0.163%)  Nu=3.131413 (0.127%)
+  fold 225.3s  S_c=1.85260 err=0.734%
+  stability 444.4s  a_up=1.052644 a_lo=-0.488942 lower_alpha1_rel_err=1197.873% upper_alpha1_rel_err=19.476%
+candidate-003 smoke valid=True
+candidates/candidate-003/full.json: valid=False improved=False objective=1374.9s (baseline 1451.8s) failures=['upper_alpha1_rel_err 9.1157% exceeds tol 1.0000%', 'lower_alpha1_rel_err 1195.8962% exceeds tol 1.0000%']
+  table1/2 399.1s  lower_Cf_rel_err=0.4183%  lower_Nu_rel_err=0.4548%  upper_Cf_rel_err=0.0019%  upper_Nu_rel_err=0.2369%
+  upper: Cf=1.935194 (vs eta_inf->inf oracle 0.003%)  Nu=3.350123 (0.036%)
+  lower: Cf=0.755588 (vs eta_inf->inf oracle 0.250%)  Nu=3.129979 (0.173%)
+  fold 368.5s  S_c=1.84669 err=0.413%
+  stability 607.4s  a_up=0.961366 a_lo=-0.488198 lower_alpha1_rel_err=1195.896% upper_alpha1_rel_err=9.116%
+candidate-004 smoke valid=True
+candidates/candidate-004/full.json: valid=False improved=False objective=1230.7s (baseline 1451.8s) failures=['upper_alpha1_rel_err 8.5797% exceeds tol 1.0000%', 'lower_alpha1_rel_err 1198.0692% exceeds tol 1.0000%']
+  table1/2 322.2s  lower_Cf_rel_err=0.4106%  lower_Nu_rel_err=0.3783%  upper_Cf_rel_err=0.0139%  upper_Nu_rel_err=0.2486%
+  upper: Cf=1.934963 (vs eta_inf->inf oracle 0.015%)  Nu=3.349732 (0.047%)
+  lower: Cf=0.755531 (vs eta_inf->inf oracle 0.243%)  Nu=3.132383 (0.096%)
+  fold 386.8s  S_c=1.84910 err=0.543%
+  stability 521.8s  a_up=0.956644 a_lo=-0.489016 lower_alpha1_rel_err=1198.069% upper_alpha1_rel_err=8.580%

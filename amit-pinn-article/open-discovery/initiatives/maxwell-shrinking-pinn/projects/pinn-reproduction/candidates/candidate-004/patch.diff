@@ -1,0 +1,4 @@
+186c186
+<         train(net[0], loss_mom, adam_iters=2500, lbfgs_iters=200, log=False)
+---
+>         train(net[0], loss_mom, adam_iters=800, lbfgs_iters=100, log=False)   # candidate-004: pilot was 2500/200

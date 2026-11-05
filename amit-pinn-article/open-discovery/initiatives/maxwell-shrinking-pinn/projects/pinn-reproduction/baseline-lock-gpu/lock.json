@@ -1,0 +1,68 @@
+{
+  "baseline": {
+    "manifest": [
+      {
+        "bytes": 12624,
+        "path": "pinn_maxwell_shrinking.py",
+        "sha256": "8f145d68377b7be4bbbc73fc7d643d745ef063e4156be2c7fea089016176b180",
+        "type": "file"
+      }
+    ],
+    "sha256": "40d7e8611b8d417153eea254e7531eb5017b1502edd2a7fd5ed174234ae8c281",
+    "snapshot": "baseline/pinn_maxwell_shrinking.py",
+    "source": "/workspace/amit-pinn-article/open-discovery/initiatives/maxwell-shrinking-pinn/projects/pinn-reproduction/baseline/pinn_maxwell_shrinking.py"
+  },
+  "created_utc": "2026-11-05T14:56:53.516575+00:00",
+  "environment": {
+    "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "python": "3.12.15 (main, Oct 13 2026, 16:52:04) [GCC 15.3.0]"
+  },
+  "error": null,
+  "evaluator": {
+    "command": [
+      "/workspace/.venv-pinn/bin/python",
+      "/workspace/amit-pinn-article/open-discovery/initiatives/maxwell-shrinking-pinn/projects/pinn-reproduction/evaluator.py",
+      "/workspace/amit-pinn-article/open-discovery/initiatives/maxwell-shrinking-pinn/projects/pinn-reproduction/baseline-lock-gpu/baseline/pinn_maxwell_shrinking.py"
+    ],
+    "elapsed_seconds": 16.442972221000673,
+    "metrics": {
+      "failures": [],
+      "improved": false,
+      "metrics": {
+        "mode": "smoke",
+        "smoke": {
+          "elapsed_seconds": 14.767302380001638,
+          "failures": [],
+          "lower": {
+            "Cf": 0.7721875368510749,
+            "Nu": 1.2025267039821723,
+            "f2": 0.7019886698646135,
+            "theta1": -1.2025267039821723
+          },
+          "upper": {
+            "Cf": 1.9125139386910173,
+            "Nu": 1.8539977414654225,
+            "f2": 1.7386490351736519,
+            "theta1": -1.8539977414654225
+          }
+        }
+      },
+      "objective": {
+        "baseline_value": 14.767302380001638,
+        "direction": "minimize",
+        "name": "elapsed_seconds",
+        "value": 14.767302380001638
+      },
+      "status": "SUPPORTED",
+      "valid": true
+    },
+    "returncode": 0,
+    "sha256": "e99f0be74b50d55d74e5e8a383fa7ec78520f8829d58c8ce7cf649dccdd940eb",
+    "snapshot": "evaluator/evaluator.py",
+    "source": "/workspace/amit-pinn-article/open-discovery/initiatives/maxwell-shrinking-pinn/projects/pinn-reproduction/evaluator.py",
+    "timed_out": false
+  },
+  "goal": "GPU reference measurement: unmodified baseline, smoke-mode lock + separate full-mode Table 1/2/3 + S_c accuracy and wall-clock on NVIDIA GeForce GTX 1080 Ti (torch 2.14.1+cu126, driver 580.178.04)",
+  "schema_version": 1,
+  "status": "locked"
+}

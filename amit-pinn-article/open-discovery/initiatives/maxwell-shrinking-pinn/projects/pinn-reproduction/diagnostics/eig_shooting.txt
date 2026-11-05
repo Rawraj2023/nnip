@@ -1,0 +1,8 @@
+eta_edge=  6.0 upper: alpha roots in [-1.5,3]: [0.75288, 1.39119, 2.4375]
+eta_edge=  6.0 lower: alpha roots in [-1.5,3]: [-0.48467, 0.69352, 1.90575]
+eta_edge=  8.0 upper: alpha roots in [-1.5,3]: [0.73895, 1.10441, 1.68658, 2.51382]
+eta_edge=  8.0 lower: alpha roots in [-1.5,3]: [-0.49303, 0.40979, 1.09175, 2.07538]
+eta_edge= 10.0 upper: alpha roots in [-1.5,3]: [0.73583, 0.98387, 1.34918, 1.87663, 2.55885]
+eta_edge= 10.0 lower: alpha roots in [-1.5,3]: [-0.49375, 0.30264, 0.7281, 1.3566, 2.17098]
+eta_edge= 12.0 upper: alpha roots in [-1.5,3]: [0.73505, 0.9242, 1.17201, 1.53567, 2.00867, 2.58872]
+eta_edge= 12.0 lower: alpha roots in [-1.5,3]: [-0.49382, 0.2545, 0.53883, 0.97249, 1.53825, 2.23931]

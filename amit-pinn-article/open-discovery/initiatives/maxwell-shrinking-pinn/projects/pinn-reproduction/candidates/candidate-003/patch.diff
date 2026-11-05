@@ -1,0 +1,4 @@
+56c56
+< def collocation(n=300, xi_max=0.9995):
+---
+> def collocation(n=300, xi_max=0.99995):   # candidate-003: was 0.9995 (eta reach ~10 -> ~13 for L~1.3)

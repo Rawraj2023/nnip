@@ -1,0 +1,125 @@
+18a19,21
+> 
+> Candidate-001 (parent: baseline): eta-derivatives via closed-form Taylor-mode jets instead of
+> nested autograd. See NOTE.md.
+89,92c92,154
+< def residuals(net, eta, S, p):
+<     f, th = fields(net, eta, S)
+<     f1 = d(f, eta); f2 = d(f1, eta); f3 = d(f2, eta)
+<     t1 = d(th, eta); t2 = d(t1, eta)
+---
+> # ---------------------------------------------------------------- candidate-001: Taylor-mode jets
+> # Instead of building f', f'', f''' with three nested create_graph autograd passes, propagate
+> # the value and its first k eta-derivatives ("jet") forward through the tanh MLP in closed form
+> # (Faa di Bruno for tanh, Leibniz for products).  Same mathematics, one small graph.
+> def _mlp_jet(mlp, zj):
+>     """zj: tensor (k+1, n, 1) = input value and eta-derivatives. Returns (k+1, n, n_out)."""
+>     k = zj.shape[0] - 1
+>     mask = torch.zeros(k + 1, 1, 1, device=zj.device, dtype=zj.dtype)
+>     mask[0] = 1.0
+>     h = zj
+>     for m in mlp.net:
+>         if isinstance(m, nn.Linear):
+>             h = h @ m.weight.T + mask * m.bias
+>         else:  # Tanh
+>             y = torch.tanh(h[0]); s = 1 - y * y
+>             out = [y]
+>             if k >= 1:
+>                 out.append(s * h[1])
+>             if k >= 2:
+>                 t2 = -2 * y * s
+>                 out.append(t2 * h[1] ** 2 + s * h[2])
+>             if k >= 3:
+>                 t3 = s * (4 * y * y - 2 * s)
+>                 out.append(t3 * h[1] ** 3 + 3 * t2 * h[1] * h[2] + s * h[3])
+>             h = torch.stack(out)
+>     return h
+> 
+> 
+> def _xi_jet(eta, L, k):
+>     e = torch.exp(-eta / L)
+>     xs = [1 - e]
+>     for j in range(1, k + 1):
+>         xs.append(((-1) ** (j + 1)) * e / L**j)
+>     return xs
+> 
+> 
+> def _mul(a, b):
+>     """Leibniz product of two jets (lists) up to the shorter order."""
+>     k = min(len(a), len(b)) - 1
+>     C = [[1], [1, 1], [1, 2, 1], [1, 3, 3, 1]]
+>     return [sum(C[n][i] * a[i] * b[n - i] for i in range(n + 1)) for n in range(k + 1)]
+> 
+> 
+> def f_jet(net_f, eta, S, k=3):
+>     L = getattr(net_f, "L", L_MAP)
+>     xi = _xi_jet(eta, L, k)
+>     N = list(_mlp_jet(net_f, torch.stack([2 * xi[0] - 1] + [2 * x for x in xi[1:]])))
+>     P = _mul(xi, xi)
+>     PN = _mul(P, N)
+>     return [S - L * xi[0] + PN[0]] + [-L * xi[j] + PN[j] for j in range(1, k + 1)]
+> 
+> 
+> def theta_jet(net_f, net_t, eta, k=2):
+>     L = getattr(net_f, "L", L_MAP)
+>     xi = _xi_jet(eta, L, k)
+>     M = list(_mlp_jet(net_t, torch.stack([2 * xi[0] - 1] + [2 * x for x in xi[1:]])))
+>     P = _mul(xi, xi)
+>     Q = [xi[j] - P[j] for j in range(k + 1)]
+>     QM = _mul(Q, M)
+>     return [1 - xi[0] + QM[0]] + [-xi[j] + QM[j] for j in range(1, k + 1)]
+> 
+> 
+> def residuals(net, eta, S, p, which="both"):
+94,95c156,165
+<     r_mom = (1 - b * f**2) * f3 + 2 * b * f * f1 * f2 + f * f2 - f1**2 - K * f1
+<     r_eng = t2 + Pr * f * t1 + A * th + B * torch.exp(-eta)
+---
+>     r_mom = r_eng = None
+>     need_mom = which in ("both", "mom")
+>     fj = f_jet(net[0], eta, S, 3 if need_mom else 0)
+>     f = fj[0]
+>     if need_mom:
+>         f1, f2, f3 = fj[1], fj[2], fj[3]
+>         r_mom = (1 - b * f**2) * f3 + 2 * b * f * f1 * f2 + f * f2 - f1**2 - K * f1
+>     if which in ("both", "eng"):
+>         th, t1, t2 = theta_jet(net[0], net[1], eta, 2)
+>         r_eng = t2 + Pr * f * t1 + A * th + B * torch.exp(-eta)
+173c243
+<         rm, _ = residuals(net, eta, S, p)
+---
+>         rm, _ = residuals(net, eta, S, p, which="mom")
+176,177c246
+<             f, _ = fields(net, eta0, S)
+<             f2 = d(d(f, eta0), eta0)
+---
+>             f2 = f_jet(net[0], eta0, S, 2)[2]   # f''(0) via the same closed-form jet
+182c251
+<         _, re = residuals(net, eta, S, p)
+---
+>         _, re = residuals(net, eta, S, p, which="eng")
+217,219c286,287
+<             rm, _ = residuals(net, eta, S, p)
+<             f, _ = fields(net, eta0, S)
+<             f2 = d(d(f, eta0), eta0)
+---
+>             rm, _ = residuals(net, eta, S, p, which="mom")
+>             f2 = f_jet(net[0], eta0, S, 2)[2]
+247a316,321
+>     with torch.no_grad():                  # base flow is frozen: its jet is a constant
+>         f, f1, f2, f3 = f_jet(base_net[0], eta.detach(), S, 3)
+>     xi = _xi_jet(eta.detach(), L_MAP, 3)
+>     P = _mul(xi, xi)
+>     R = _mul(P, xi)
+> 
+249d322
+<         xi = 1 - torch.exp(-eta / L_MAP)
+251,254c324,326
+<         g = 0.5 * L_MAP**2 * xi**2 + xi**3 * gnet(2 * xi - 1)
+<         g1 = d(g, eta); g2 = d(g1, eta); g3 = d(g2, eta)
+<         f, _ = fields(base_net, eta, S)
+<         f1 = d(f, eta); f2 = d(f1, eta); f3 = d(f2, eta)
+---
+>         N = list(_mlp_jet(gnet, torch.stack([2 * xi[0] - 1] + [2 * x for x in xi[1:]])))
+>         RN = _mul(R, N)
+>         g, g1, g2, g3 = [0.5 * L_MAP**2 * P[j] + RN[j] for j in range(4)]
