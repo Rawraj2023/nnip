@@ -140,3 +140,17 @@ an evaluated candidate).
   made here. A candidate's `elapsed_seconds` objective is only comparable to
   other runs on the same machine/environment, per
   `program-evolution/README.md`'s hash-and-environment-tracking guidance.
+
+## GPU session (2026-11-05, GTX 1080 Ti) — supersedes the CPU "in progress" status above
+
+- The earlier background CPU full-mode run never completed (`runs/full_table12_confirmation.json` is empty).
+- GPU lock: `baseline-lock-gpu/` (smoke 14.8 s, `locked`). Full GPU reference:
+  `runs/full_confirmation_gpu.json` — Table 1/2 and S_c reproduce; **Table 3 does not**.
+- Acceptance rule fixed before any candidate result: `runs/GPU-SEARCH-PREREGISTRATION.md`
+  (why the alpha1 magnitude gate cannot be met by any correct solver; upper alpha1 not identifiable).
+- Independent eigen diagnostics: `diagnostics/eig_shooting.py`, `diagnostics/eig_cheb_fixed.py`.
+- Candidates 001–005: `candidates/LINEAGE.md`. Winner candidate-005 confirmed **2.72x faster**
+  same-GPU with unchanged search-point accuracy: `runs/GPU-SEARCH-RESULTS.md`.
+- Open: baseline vs 005 on `confirm_fresh.py` (lower-branch seed spread); a correct Table 3 oracle.
+- Environment: torch 2.14.1+cu126 venv (image torch cu128 lacks sm_61);
+  `../../../../../requirements-gpu-cu126.txt`.

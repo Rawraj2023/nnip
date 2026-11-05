@@ -1,2 +1,28 @@
 start 2026-11-05T17:49:13Z
 smoke valid=True
+runs/confirm-005/baseline_full_paired.json: valid=False improved=False objective=1389.9s (baseline 1389.9s) failures=['upper_alpha1_rel_err 8.7374% exceeds tol 1.0000%', 'lower_alpha1_rel_err 1195.8969% exceeds tol 1.0000%']
+  table1/2 392.8s  lower_Cf_rel_err=0.4234%  lower_Nu_rel_err=0.3800%  upper_Cf_rel_err=0.0037%  upper_Nu_rel_err=0.2394%
+  upper: Cf=1.935161 (vs eta_inf->inf oracle 0.005%)  Nu=3.350039 (0.038%)
+  lower: Cf=0.755627 (vs eta_inf->inf oracle 0.255%)  Nu=3.132330 (0.098%)
+  fold 396.4s  S_c=1.84910 err=0.543%
+  stability 600.7s  a_up=0.958033 a_lo=-0.488198 lower_alpha1_rel_err=1195.897% upper_alpha1_rel_err=8.737%
+runs/confirm-005/winner_full_paired.json: valid=False improved=False objective=511.6s (baseline 1389.9s) failures=['upper_alpha1_rel_err 19.3145% exceeds tol 1.0000%', 'lower_alpha1_rel_err 1195.5749% exceeds tol 1.0000%']
+  table1/2 158.1s  lower_Cf_rel_err=0.4255%  lower_Nu_rel_err=0.3904%  upper_Cf_rel_err=0.0408%  upper_Nu_rel_err=0.2740%
+  upper: Cf=1.934442 (vs eta_inf->inf oracle 0.042%)  Nu=3.348876 (0.073%)
+  lower: Cf=0.755643 (vs eta_inf->inf oracle 0.257%)  Nu=3.132005 (0.108%)
+  fold 161.9s  S_c=1.84947 err=0.564%
+  stability 191.7s  a_up=1.051222 a_lo=-0.488077 lower_alpha1_rel_err=1195.575% upper_alpha1_rel_err=19.314%
+{"S": 2.1, "K": 0.1, "beta": 0.1, "seed": 1, "seconds": 147.29377982299775, "upper": {"Cf": 2.623552509602664, "Nu": 3.7270149678258755, "Cf_err_oracle": 0.0008977973708204079, "Nu_err_oracle": 0.0008368136084051514, "Cf_err_paper": 0.0008997386285392039}, "lower": {"Cf": 0.567065755243216, "Nu": 3.4377989361703625, "Cf_err_oracle": 0.0003771961721659167, "Nu_err_oracle": 0.0020880855275073884, "Cf_err_paper": 0.008219351220145388}}
+{"S": 2.1, "K": 0.1, "beta": 0.1, "seed": 2, "seconds": 155.48178322399326, "upper": {"Cf": 2.623886668659816, "Nu": 3.7301609582671365, "Cf_err_oracle": 0.0010252806451405139, "Nu_err_oracle": 6.584623365668563e-06, "Cf_err_paper": 0.0010272221501153034}, "lower": {"Cf": 0.5709463869154843, "Nu": 3.4429429040515616, "Cf_err_oracle": 0.00722313140240316, "Nu_err_oracle": 0.0005949130262584701, "Cf_err_paper": 0.015118953093054444}}
+{"S": 2.1, "K": 0.1, "beta": 0.1, "seed": 3, "seconds": 149.44907868099835, "upper": {"Cf": 2.6223938545810364, "Nu": 3.728018470220451, "Cf_err_oracle": 0.0004557649530145813, "Nu_err_oracle": 0.0005677879514728312, "Cf_err_paper": 0.0004577053534045028}, "lower": {"Cf": 0.5725001636534142, "Nu": 3.437330951916917, "Cf_err_oracle": 0.009964194148999628, "Nu_err_oracle": 0.002223930313944744, "Cf_err_paper": 0.017881503573615065}}
+{"S": 1.95, "K": 0.13, "beta": 0.1, "seed": 1, "seconds": 146.55097763900267, "upper": {"Cf": 1.9891415459525597, "Nu": 3.3566254738476955, "Cf_err_oracle": 0.0021205064590503753, "Nu_err_oracle": 0.00013080759696326716, "Cf_err_paper": 0.0021195743803572586}, "lower": {"Cf": 0.6972582919370464, "Nu": 3.1065292058876364, "Cf_err_oracle": 0.004882466426779475, "Nu_err_oracle": 0.001159001874575294, "Cf_err_paper": 0.0029240512335697577}}
+{"S": 1.95, "K": 0.13, "beta": 0.1, "seed": 2, "seconds": 152.58151495600032, "upper": {"Cf": 1.9839107606376545, "Nu": 3.351775310733165, "Cf_err_oracle": 0.0005147395040222547, "Nu_err_oracle": 0.0013143335397248768, "Cf_err_paper": 0.0005156691316561268}, "lower": {"Cf": 0.6974951955455607, "Nu": 3.099505832719407, "Cf_err_oracle": 0.004544360824701332, "Nu_err_oracle": 0.0034172240256067354, "Cf_err_paper": 0.0025852802315506906}}
+{"S": 1.95, "K": 0.13, "beta": 0.1, "seed": 3, "seconds": 148.27426446800382, "upper": {"Cf": 1.9855920564715366, "Nu": 3.3527997006018317, "Cf_err_oracle": 0.0003322897262434399, "Nu_err_oracle": 0.0010091091783458461, "Cf_err_paper": 0.0003313593107820978}, "lower": {"Cf": 0.703510224491315, "Nu": 3.103619823754918, "Cf_err_oracle": 0.004040206527293533, "Nu_err_oracle": 0.002094454259141565, "Cf_err_paper": 0.006016181755059691}}
+{"S": 1.95, "K": 0.1, "beta": 0.15, "seed": 1, "seconds": 154.18675976400118, "upper": {"Cf": 2.7760310338851757, "Nu": 3.408021041198956, "Cf_err_oracle": 0.0006035812486882008, "Nu_err_oracle": 0.0009182879063858174, "Cf_err_paper": 0.0006035395324364146}, "lower": {"Cf": 0.7243837134312497, "Nu": 3.130856388494868, "Cf_err_oracle": 0.006701383493323831, "Nu_err_oracle": 0.0001190331629113972, "Cf_err_paper": 0.008312155283187073}}
+{"S": 1.95, "K": 0.1, "beta": 0.15, "seed": 2, "seconds": 163.6901623310041, "upper": {"Cf": 2.7750723112821687, "Nu": 3.407449909453607, "Cf_err_oracle": 0.0002580154901345999, "Nu_err_oracle": 0.001085718586853024, "Cf_err_paper": 0.0002579737882897337}, "lower": {"Cf": 0.7198583166342309, "Nu": 3.1290045174173255, "Cf_err_oracle": 0.00041228127864867403, "Nu_err_oracle": 0.0007104530217957317, "Cf_err_paper": 0.0020129901952536944}}
+{"S": 1.95, "K": 0.1, "beta": 0.15, "seed": 3, "seconds": 152.68408292200183, "upper": {"Cf": 2.7784389885933676, "Nu": 3.4085695027732146, "Cf_err_oracle": 0.0014715139465188987, "Nu_err_oracle": 0.0007575031219013706, "Cf_err_paper": 0.0014714721940818354}, "lower": {"Cf": 0.7210950309916754, "Nu": 3.1294674831823497, "Cf_err_oracle": 0.002130986478035224, "Nu_err_oracle": 0.0005625986971943275, "Cf_err_paper": 0.0037344454075991518}}
+start 2026-11-05T17:49:13Z
+smoke done 2026-11-05T17:49:23Z
+baseline full done 2026-11-05T18:12:36Z
+winner full done 2026-11-05T18:21:10Z
+fresh done 2026-11-05T18:44:03Z
