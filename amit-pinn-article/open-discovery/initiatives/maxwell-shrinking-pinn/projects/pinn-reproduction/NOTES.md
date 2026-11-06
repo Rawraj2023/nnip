@@ -154,3 +154,31 @@ an evaluated candidate).
 - Open: baseline vs 005 on `confirm_fresh.py` (lower-branch seed spread); a correct Table 3 oracle.
 - Environment: torch 2.14.1+cu126 venv (image torch cu128 lacks sm_61);
   `../../../../../requirements-gpu-cu126.txt`.
+
+## Session 3 (2026-11-06, RTX 2060 SUPER) — closes both open items above
+
+Pre-registration (before any result): `runs/OPEN-ITEMS-PREREGISTRATION.md`. Venv rebuilt from the
+cu126 requirements (torch 2.14.1+cu126, identical to session 2). Different GPU: no timing here is
+compared with session-2 timings.
+
+- **Item A — lower-branch seed spread: closed, equivalent.** Baseline and 005 through
+  `confirm_fresh.py` (seeds 1-3, same GPU): lower Cf error vs converged oracle mean/max
+  0.46/0.96 % (baseline) vs 0.39/0.99 % (005); all secondaries equivalent. The spread is inherent
+  to the baseline, not introduced by 005. `runs/fresh-paired-2060s/ANALYSIS.md`.
+  Candidate-005 is now accuracy-equivalent to the baseline both at the search point and on
+  unseen rows/seeds (to the resolution of n=9).
+- **Item B — Table 3 oracle: built, `oracle-v2/` (README has the full table).** Lower-branch alpha1
+  converged by three methods: -0.4926, -0.6114, -0.7080, -0.7941, -0.8767 (S=2.0..2.4) vs paper
+  -0.0377..-0.3115 — sign agrees (unstable), magnitudes do not reproduce. PINN lower alpha1 at
+  S=2.0 (-0.488) is within 0.9 % of the oracle. Upper branch: the pre-registered "roots tend to
+  alpha*" hypothesis was refuted at S=2.0/2.1 (converged 0.7348/1.0493, below alpha*); no reliable
+  magnitude at S>=2.2; all roots > K > 0, so "stable" holds. The bundled `oracle/ref_eig_cheb.py`
+  BC placement (rows at swapped ends) at L=12 lands within 0.7 % of all five paper upper values —
+  consistent with, not proof of, the paper's upper column having come from that placement.
+  Energy-disturbance eigenvalues (Eq. 32, new) are all positive; no sign change.
+- Evaluator not edited. Its Table 3 magnitude gates remain unmeetable by a correct solver;
+  `oracle-v2` values are the recommended reference if a new evaluator version is locked.
+
+Status: **reproduction complete to the extent the paper allows** — Table 1/2 and S_c reproduce;
+Table 3 signs reproduce, magnitudes do not (paper-side discrepancy, evidence above). Candidate-005
+confirmed 2.72x faster (session 2) and accuracy-equivalent. No open items.

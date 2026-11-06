@@ -57,3 +57,9 @@ oracle (eta_inf=10 truncation; truncation error grows as the lower branch decays
 - **Table 3 does not reproduce** (baseline and 005 alike); independent solves of the paper's Eq. 31
   give lower alpha1 ≈ -0.49, upper ≈ 0.74 at S=2.0. The bundled `oracle/ref_eig_cheb.py` applies its
   boundary rows at swapped ends (see `../diagnostics/`).
+
+## Update (session 3, 2026-11-06): open items closed
+- Baseline vs 005 on `confirm_fresh.py` (same RTX 2060 SUPER, seeds 1-3): **equivalent** under a
+  pre-registered rule; lower-branch Cf seed spread is inherent to the baseline.
+  `fresh-paired-2060s/ANALYSIS.md`.
+- Correct Table 3 oracle: `../oracle-v2/README.md` (lower alpha1 -0.4926 at S=2.0, converged).
