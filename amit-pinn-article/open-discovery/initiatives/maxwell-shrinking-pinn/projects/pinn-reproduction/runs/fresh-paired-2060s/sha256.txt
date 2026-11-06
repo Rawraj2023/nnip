@@ -1,0 +1,2 @@
+8f145d68377b7be4bbbc73fc7d643d745ef063e4156be2c7fea089016176b180  baseline-lock-gpu/baseline/pinn_maxwell_shrinking.py
+cae5449802f2d42d069a7b7b0fb9c2d27810dbe34547d17fb8bf5fbdb7010661  runs/confirm-005/pinn_maxwell_shrinking.py
