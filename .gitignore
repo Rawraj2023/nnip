@@ -2,3 +2,11 @@
 # amit-pinn-article/requirements-gpu-cu126.txt
 .venv-pinn/
 __pycache__/
+
+# LaTeX build artifacts of WORK-SUMMARY.tex (the .tex and .pdf are tracked).
+# Deliberately not a blanket *.log: run logs under initiatives/ are evidence.
+/WORK-SUMMARY.aux
+/WORK-SUMMARY.log
+/WORK-SUMMARY.out
+/WORK-SUMMARY.toc
+/WORK-SUMMARY.synctex.gz

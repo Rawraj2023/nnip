@@ -1,0 +1,1077 @@
+% WORK-SUMMARY.tex
+% Detailed summary of all work contained in the `nnip/` repository.
+% Compile with: pdflatex WORK-SUMMARY.tex  (run twice for the table of contents)
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\pct}{\,\%}
+
+% long unbreakable paths inside \code: prefer loose lines over margin overflow
+\setlength{\emergencystretch}{3em}
+\sloppy
+
+\title{\textbf{Maxwell-Fluid Shrinking-Sheet PINN:\\
+Reproduction, Evaluator Harness, GPU Candidate Search\\
+and Stability-Table Audit}\\[0.6em]
+\large Complete record of the work in the \code{nnip/} repository}
+\author{Raja Rawat \quad (work carried out with Claude Code / Open Discovery harness)}
+\date{Summary compiled 12 November 2026 \\ \small Work performed 5--6 November 2026 (three sessions)}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This document is a complete, self-contained summary of the work stored in the
+\code{nnip/} repository. The subject is a Physics-Informed Neural Network (PINN)
+reproduction of Pandey \textit{et al.}, \emph{``Insight of thermal transport in Maxwell
+fluid flow on a porous contracting flat surface inside a porous material with
+non-uniform heat source/sink: Multiple solutions and stability treatment''},
+\emph{Forces in Mechanics} 100352 (DOI 10.1016/j.finmec.2026.100352).
+
+Three things were produced. \textbf{(i) A reproduction harness:} the paper's equations,
+boundary conditions and Tables~1--3 were transcribed into a durable provenance record,
+and a candidate-proof \emph{external evaluator} was written that gates a PINN script
+against the paper's published numbers \emph{and} two independent numerical oracles. The
+baseline PINN was hash-locked twice (CPU and GPU) through the Open Discovery
+\code{program-evolution} contract. \textbf{(ii) A GPU candidate search:} five candidates
+were proposed and evaluated under a pre-registered acceptance rule; the winner
+(candidate-005, a combination of four orthogonal mechanisms) is
+\textbf{2.72$\times$ faster end-to-end on the same GPU} with accuracy unchanged at the
+search point, and was subsequently shown \textbf{accuracy-equivalent} to the baseline on
+unseen parameter rows and seeds. \textbf{(iii) A stability-table audit:} Tables~1 and~2
+and the critical suction parameter $S_c$ reproduce; \textbf{Table~3's eigenvalue
+magnitudes do not}. Three independent solvers of the paper's own Eq.~(31) agree with each
+other to $<10^{-7}$ relative and disagree with the published lower-branch column by factors
+of 2.8--13$\times$, while the \emph{signs} (upper stable, lower unstable) do reproduce. A
+plausible mechanical explanation for the published upper column is identified: the bundled
+Chebyshev oracle applies its boundary rows at swapped ends, and that placement reproduces
+all five published upper values to within $0.7\pct$. Section~\ref{sec:beat} weighs the
+whole record against the article itself: superseded on the stability table, improved on the
+far-field reference, matched on Tables~1 and~2, and still well behind on computational cost
+and parameter coverage.
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+%=====================================================================
+\section{Scope, inputs and provenance}
+
+\subsection{What the human supplied}
+A single chat session provided four artifacts, all originating outside the repository:
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+  \item The paper PDF (12 pages, uncorrected proof), \code{pagination\_FINMEC\_100352-1.pdf}.
+  \item \code{pinn\_maxwell\_shrinking.py} --- a three-stage PINN solving the paper's
+        similarity ODEs (branch solve, fold tracing, stability eigenvalue).
+  \item \code{reference\_bvp.py} --- an independent \code{scipy.solve\_bvp} collocation
+        solver for the same boundary-value problem, used as ground truth.
+  \item \code{ref\_eig\_cheb.py} --- an independent Chebyshev-spectral solve of the
+        linearised stability eigenvalue problem, a second ground truth.
+\end{enumerate}
+
+\noindent The instruction was to use the existing Open Discovery harness
+(\code{paper-implementer} for the reproduction claim, \code{program-evolution} for an
+optimisation baseline) to give the work a durable, evidence-preserving home.
+
+\subsection{Non-destructive provenance}
+Per the harness contract, external work is never modified. The scripts and PDF were copied
+read-only into the project and their SHA-256 digests recorded (Table~\ref{tab:prov}).
+No upstream Open Discovery file was edited: a check of the working tree against the
+upstream history (\code{open-discovery/.git-upstream}) shows \emph{zero} modified tracked
+files. All new material lives in two directories that the harness \code{.gitignore}
+deliberately excludes and that were force-added to the outer repository:
+\code{initiatives/maxwell-shrinking-pinn/} and \code{skill-lab/evolve-maxwell-pinn-gpu/}.
+
+\begin{table}[ht]
+\centering
+\caption{Source-material SHA-256 digests recorded at copy time (truncated).}
+\label{tab:prov}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{File} & \textbf{SHA-256 (prefix)} \\
+\midrule
+\code{pinn\_maxwell\_shrinking.py} & \code{8f145d68377b7be4bbbc73f\ldots b180} \\
+\code{reference\_bvp.py}           & \code{a1e042fd16bdccd19cdac98\ldots f203} \\
+\code{ref\_eig\_cheb.py}           & \code{081318bf7cbb5ab4a78d7e9\ldots 60b1} \\
+\code{pagination\_FINMEC\_100352-1.pdf} & \code{005acd8e27c6533be8e9e4e\ldots f5e3} \\
+\midrule
+Locked baseline bundle (\code{lock.json} root) & \code{40d7e8611b8d417153eea25\ldots c281} \\
+Evaluator (\code{evaluator.py})               & \code{e99f0be74b50d55d74e5e8a\ldots 40eb} \\
+Candidate-005 winner, rebuilt from patch      & \code{cae54498\ldots 0661} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Repository layout}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+  \item \code{nnip/amit-pinn-article/} --- the original source material (PDF, three
+        scripts) plus \code{requirements-gpu-cu126.txt}, the exact pinned GPU environment
+        (torch 2.14.1+cu126, scipy 1.18.1, numpy 2.5.4). The 6.7\,GB venv itself is
+        excluded from version control and rebuilt from this file.
+  \item \code{\ldots/open-discovery/} --- the research harness (upstream, unmodified):
+        \code{AGENTS.md}, 20 workflow skills under \code{.agents/skills/}, seven agent
+        role definitions, \code{docs/} (evidence standard, candidate lifecycle,
+        state model), and the \code{program-evolution/} locking harness.
+  \item \code{\ldots/initiatives/maxwell-shrinking-pinn/} --- \textbf{all new scientific
+        work} (2.2\,MB): \code{BRIEF.md} and the single project
+        \code{projects/pinn-reproduction/}.
+  \item \code{\ldots/skill-lab/evolve-maxwell-pinn-gpu/} --- \textbf{new} prototype skill:
+        how to run a GPU candidate search for this specific initiative, plus a menu of
+        concrete candidate mechanisms.
+\end{itemize}
+
+%=====================================================================
+\section{The physical problem and the claims under test}
+
+\subsection{Governing similarity ODEs (paper Eqs.~13--15)}
+Two-dimensional steady boundary-layer flow and heat transfer of a Maxwell (viscoelastic)
+fluid over a continuously \emph{contracting} sheet embedded in a Darcy porous medium, with
+wall mass transfer and a heat source/sink depending on \emph{both} temperature and spatial
+position:
+\begin{align}
+  (1-\beta f^2)\,f''' + 2\beta f f' f'' + f f'' - f'^2 - K f' &= 0, \label{eq:mom}\\
+  \theta'' + \mathrm{Pr}\, f\,\theta' + A^{*}\theta + B^{*}e^{-\eta} &= 0, \label{eq:en}
+\end{align}
+subject to
+\begin{equation}
+  f(0)=S,\quad f'(0)=-1,\quad f'(\infty)=0,\qquad \theta(0)=1,\quad \theta(\infty)=0 .
+\end{equation}
+Here $\beta$ is the Deborah (Maxwell) number, $K$ the permeability parameter, $S$ the wall
+mass-transfer parameter ($S>0$ suction), $\mathrm{Pr}$ the Prandtl number, and
+$A^{*},B^{*}$ the temperature- and space-dependent source/sink strengths. The paper
+truncates the far field at $\eta_\infty=10$. The engineering outputs are
+\begin{equation}
+  C_f\,\mathrm{Re}_x^{1/2} = (1+\beta) f''(0), \qquad
+  \mathrm{Nu}\,\mathrm{Re}_x^{-1/2} = -\theta'(0).
+\end{equation}
+
+\subsection{The paper's own method, and why cross-validation matters}
+The paper solves the system by shooting (RK4, $\Delta\eta=0.01$, Secant iteration to
+$10^{-5}$). Neither companion script uses that route: \code{reference\_bvp.py} uses
+collocation and the PINN uses a neural trial function with hard-constrained boundary
+conditions. Three independent numerical routes to the same claim is exactly the right
+design for an audit, and this independence is what later made the Table~3 discrepancy
+diagnosable rather than ambiguous.
+
+\subsection{Claims transcribed as automated gates}
+\code{paper/paper-summary.md} transcribes the equations, boundary conditions, solution
+method, all of Tables~1--3, and the qualitative conclusions of Section~6. Each number is
+explicitly marked either \textbf{[gate]} (used as an automated evaluator gate,
+cross-checked against the co-author's own inline comments in the original script) or
+\textbf{[reference only --- verify against PDF before quoting]} (read visually off rendered
+table images). The gated values are listed in Table~\ref{tab:gates}.
+
+\begin{table}[ht]
+\centering
+\caption{The published values used as automated evaluator gates. Baseline parameter row:
+$\beta=0.1$, $K=0.1$, $S=1.95$, $\mathrm{Pr}=2$, $A^{*}=B^{*}=0.1$; stability row $S=2.0$,
+$B^{*}=0$.}
+\label{tab:gates}
+\small
+\begin{tabular}{@{}llrr@{}}
+\toprule
+\textbf{Claim} & \textbf{Source} & \textbf{Upper branch} & \textbf{Lower branch} \\
+\midrule
+$C_f \mathrm{Re}^{1/2}$          & Table 1, p.~7  & 1.93523180 & 0.75244081 \\
+$\mathrm{Nu}\,\mathrm{Re}^{-1/2}$ & Table 2, p.~7  & 3.35807824 & 3.14427924 \\
+Critical suction $S_c$            & Sec.~4.1, Fig.~2 & \multicolumn{2}{c}{1.8391} \\
+Leading eigenvalue $\alpha_1$     & Table 3, p.~10 & $+0.8810518$ & $-0.0376726$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The physics being protected: dual (upper/lower) similarity solutions exist only
+for $S\geq S_c$; the upper branch is stable ($\alpha_1>0$) and the lower branch unstable
+($\alpha_1<0$) at every tabulated $S$. A ``faster'' candidate that converges to one branch,
+swaps branch labels, or flips an eigenvalue sign has improved nothing, however low its
+wall-clock.
+
+%=====================================================================
+\section{The baseline program}
+
+\code{baseline/pinn\_maxwell\_shrinking.py} (290 lines, float64 throughout, device
+auto-selected as CUDA when available) implements three separate PINNs:
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+  \item \code{solve\_branch(p, branch, \ldots)} --- the upper or lower branch at one
+        parameter point. A $4\times40$ tanh MLP (Xavier-normal init, zero bias) on the
+        mapped variable $\xi = 1-e^{-\eta/L}$ with 300 collocation points up to
+        $\xi_{\max}=0.9995$. Far-field boundary conditions are imposed \emph{exactly} by
+        the trial function, not by penalty. Training is 4000 Adam
+        ($\mathrm{lr}=2\times10^{-3}$) $+$ 1500 LBFGS for momentum, then
+        $2000+1000$ for energy, preceded by a $2500+200$ ``pilot'' solve whose only purpose
+        is to read off $f(\infty)$ and choose the map length $L_{\mathrm{MAP}}$
+        (\code{auto\_scale=True}). Branch selection uses an \code{f2\_anchor} warm start.
+  \item \code{trace\_fold(p, f2\_values)} --- treats $S$ as the unknown and prescribes
+        $f''(0)$ over eight continuation values, so the solution path passes smoothly
+        through the turning point and yields $S_c$ directly.
+  \item \code{smallest\_eigen(base\_net, p, alpha\_init)} --- the leading eigenvalue
+        $\alpha_1$ of the linearised disturbance problem about a frozen base flow
+        ($3000+1000$ iterations, $\alpha$ a trainable parameter).
+\end{enumerate}
+
+\noindent The script's own docstring records that $L_{\mathrm{MAP}}$ auto-scaling is what
+brings the lower branch from a $1$--$2\pct$ error floor down to ${\sim}0.1\pct$; this is
+flagged in the project notes as something a candidate must not silently remove.
+
+%=====================================================================
+\section{Infrastructure built}
+
+\subsection{The external evaluator (\code{evaluator.py}, 364 lines)}
+A standalone, \emph{import-based} (not print-parsing) evaluator implementing the
+\code{program-evolution} contract: it exits 0 and prints exactly one JSON object. It loads
+a candidate module via \code{importlib} and first checks the required public contract
+\code{\{MLP, train, fields, wall\_values, solve\_branch, trace\_fold, smallest\_eigen\}}.
+A candidate may change anything \emph{inside} those functions; it may not change their
+signatures, and it may never edit the evaluator.
+
+\begin{description}[leftmargin=1.6em,itemsep=2pt]
+  \item[\code{--mode smoke} (default, cheap).] Monkeypatches the candidate's \code{train}
+        to a hard 120-Adam/40-LBFGS budget and checks the dual-solution pipeline runs and
+        returns finite, physically ordered values ($C_f^{\mathrm{up}} > C_f^{\mathrm{low}} > 0$,
+        both $\mathrm{Nu}>0$). This is a wiring/pipeline gate, explicitly \emph{not} an
+        accuracy claim --- the evaluator docstring says so, and the project notes repeat it.
+  \item[\code{--mode full} (expensive).] Runs the candidate's own unmodified
+        \code{solve\_branch} at the paper's baseline row and gates on relative error to the
+        published $C_f$ and $\mathrm{Nu}$ (default tolerance $1\pct$).
+  \item[\code{--fold}] gates $S_c$ against 1.8391 (tolerance $3\pct$ in the acceptance rule).
+  \item[\code{--stability}] gates the Table~3 eigenvalues, including a \emph{hard sign
+        check} (upper $>0$, lower $<0$) --- the real guard against branch confusion.
+  \item[\code{--oracle}] cross-checks the \emph{paper's} numbers against the independent
+        \code{scipy.solve\_bvp} oracle. Informative only; it never gates the candidate.
+\end{description}
+
+\noindent The objective reported is \code{elapsed\_seconds} (minimised), summed over the
+stages actually requested.
+
+\subsection{Baseline locks}
+\code{program-evolution/scripts/lock\_baseline.py} snapshots baseline $+$ evaluator with
+hashes, environment, and a smoke run.
+
+\begin{table}[ht]
+\centering
+\caption{The two baseline locks. Both report \code{status: locked}, \code{error: null},
+\code{valid: true}, \code{SUPPORTED}.}
+\label{tab:locks}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \code{baseline-lock/} (session 1) & \code{baseline-lock-gpu/} (session 2) \\
+\midrule
+Hardware     & CPU only (Windows 10) & NVIDIA GTX 1080 Ti (sm\_61) \\
+torch        & 2.13.0+cpu & 2.14.1+cu126 (driver 580.178.04) \\
+Python / OS  & 3.13.7 / Windows-10 & 3.12.15 / Linux 6.8 glibc 2.39 \\
+Smoke objective & \textbf{126.81\,s} & \textbf{14.77\,s} \\
+Smoke $C_f$ upper / lower & 1.9125139387 / 0.7721875369 & 1.9125139387 / 0.7721875369 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Note that the two locks reproduce the smoke values to 10--11 significant figures
+across operating system, Python version, torch version and device --- a strong
+cross-platform determinism check that was obtained for free from the locking discipline.
+
+\subsection{The GPU-search skill and mechanism menu}
+\code{skill-lab/evolve-maxwell-pinn-gpu/SKILL.md} is a new repository-local skill. Its
+substantive content is methodological discipline:
+\begin{enumerate}[leftmargin=1.4em,itemsep=1pt]
+  \item Verify CUDA is genuinely present before any speed claim.
+  \item \textbf{Never compare wall-clock across hardware.} Moving to a GPU is a hardware
+        effect, not an evolved program; a fresh same-hardware reference must be established
+        first, and the hardware and algorithmic improvements must be reported separately
+        and \emph{never summed}.
+  \item One candidate folder per hypothesis, gate on smoke first, spend full-mode budget
+        only on survivors, never edit the evaluator.
+  \item A claimed winner must be \emph{reconstructed} from the locked baseline plus its
+        recorded patch and re-confirmed on fresh parameter points over several seeds.
+  \item Novel-science extensions are a \emph{new project}, not a candidate.
+\end{enumerate}
+\code{references/candidate-mechanisms.md} is a menu of 14 concrete, line-referenced
+hypotheses in four groups: \textbf{A} same-hardware throughput (A1 batch both branches via
+\code{vmap}; A2 cheaper $L_{\mathrm{MAP}}$ pilot; A3 early-exit LBFGS; A4 Adam/LBFGS
+rebalance; A5 vectorise the fold continuation loop; A6 trade collocation count for
+iteration count), \textbf{B} accuracy and robustness (closed-form $L_{\mathrm{MAP}}$, more
+reliable branch selection, stress-testing the $(1-\beta f^2)$ singularity, targeting the
+lower branch), \textbf{C} GPU-native restructuring under the same public contract, and
+\textbf{D} a novel-work track (parametric/meta-PINN over $(S,\beta,K)$, continuous
+fold-tracking by differentiating with respect to $S$, parametric stability locating
+$\alpha_1=0$ as an independent check that the turning point and the stability-exchange
+point coincide, and ensemble uncertainty).
+
+\subsection{Independent confirmation and diagnostic tooling (new code)}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+  \item \code{confirm\_fresh.py} (55 lines) --- runs a program's own \code{solve\_branch}
+        at three Table~1 rows \emph{not} used during the search
+        ($S{=}2.10$; $K{=}0.13$; $\beta{=}0.15$) over several seeds, and compares $C_f$ and
+        $\mathrm{Nu}$ both with the paper and with a long-domain
+        ($\eta_\infty{=}40$, converged) \code{scipy.solve\_bvp} oracle.
+  \item \code{diagnostics/eig\_shooting.py} --- independent IVP shooting solve of the
+        paper's Eq.~(31), with a domain-length study.
+  \item \code{diagnostics/eig\_cheb\_fixed.py} --- the bundled Chebyshev oracle with its
+        boundary rows moved to the correct ends.
+  \item \code{oracle-v2/table3\_oracle.py} (139 lines) $+$ \code{judge.py} --- a
+        full Table~3 oracle (three methods $\times$ five domain lengths $\times$ five $S$
+        values $\times$ two branches) with the pre-registered acceptance criteria applied
+        mechanically to produce \code{judge.md}.
+  \item \code{summarize\_run.py}, \code{run\_candidates.sh}, \code{queue\_round2.sh},
+        per-run \code{run.sh}/\code{timeline.txt}/\code{env.txt}/\code{nvidia-smi.txt}/
+        \code{sha256.txt} --- the evidence plumbing.
+\end{itemize}
+
+%=====================================================================
+\section{Session 1 (5 Nov 2026, CPU): harness bring-up}
+
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+  \item Paper read in full (12 pages); equations, boundary conditions, solution method and
+        Tables~1--3 transcribed with gate/reference-only marking.
+  \item Source material copied read-only with hashes recorded; originals untouched.
+  \item \code{evaluator.py} written and validated in smoke mode against the baseline:
+        \textbf{valid, SUPPORTED}, $C_f^{\mathrm{up}}{\approx}1.913$,
+        $C_f^{\mathrm{low}}{\approx}0.772$, $\mathrm{Nu}^{\mathrm{up}}{\approx}1.854$,
+        $\mathrm{Nu}^{\mathrm{low}}{\approx}1.203$ in 126.8\,s --- correctly ordered and
+        finite, and explicitly \emph{not} claimed to match the paper.
+  \item Baseline locked (\code{baseline-lock/lock.json}, \code{status: locked}).
+  \item A full-mode CPU confirmation run was launched in the background. \textbf{It never
+        completed} --- \code{runs/full\_table12\_confirmation.json} is empty, and this is
+        recorded as such rather than quietly dropped. The notes stated in advance that no
+        pass/fail may be reported before the process exits.
+\end{itemize}
+
+%=====================================================================
+\section{Session 2 (5 Nov 2026, GTX 1080 Ti): GPU reference and candidate search}
+
+\subsection{Pre-registration, written before any candidate result}
+\code{runs/GPU-SEARCH-PREREGISTRATION.md} fixes the acceptance rule \emph{before} results
+exist:
+\begin{enumerate}[leftmargin=1.4em,itemsep=1pt]
+  \item smoke gate valid;
+  \item full mode: no Table~1/2 failure (tol $1\pct$), no $S_c$ failure (tol $3\pct$);
+  \item stability: both sign checks pass; $\alpha_1$ magnitudes \emph{reported} against the
+        independent values, not used to accept or reject;
+  \item the speed claim is the same-GPU total objective versus 1451.8\,s;
+  \item a winner must be rebuilt from baseline $+$ recorded patch and re-confirmed on fresh
+        parameter points over several seeds.
+\end{enumerate}
+
+\noindent Two reasons are documented for excluding the $\alpha_1$ magnitude gate, both
+established before candidate results:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+  \item \textbf{No correct solver can satisfy it.} Two independent solves of the paper's own
+        Eq.~(31), verified term-by-term against page~10, agree with each other and not with
+        Table~3: shooting gives $\alpha_1^{\mathrm{up}}=0.7358$,
+        $\alpha_1^{\mathrm{low}}=-0.4938$ at $S{=}2.0$; the corrected Chebyshev solve gives
+        identical roots. $|\alpha_1^{\mathrm{low}} + 0.0377| < 1\pct$ is unreachable. The
+        evaluator was \emph{not} edited --- the program-evolution contract forbids weakening
+        a gate mid-search; the gate is simply reported.
+  \item \textbf{The upper-branch magnitude is not identifiable by this PINN.} In the far
+        field $g'\sim e^{-\mu\eta}$ with
+        $(1-\beta f_\infty^2)\mu^2 - f_\infty\mu + (\alpha-K) = 0$. For $\alpha > K$ both
+        roots have $\mathrm{Re}\,\mu>0$, so $g'(\infty)=0$ holds for a \emph{continuum} of
+        $\alpha$ on the semi-infinite domain. The PINN trial function imposes
+        $g'(\infty)=0$ exactly, so the upper root ($\approx 0.74 > K = 0.1$) is not pinned
+        --- CPU tests with initialisations spanning $0.0$--$1.0$ all land in $0.66$--$0.69$,
+        while the GPU baseline lands at $0.958$. The lower branch
+        ($\alpha\approx-0.49 < K$) has one growing mode, hence a genuine discrete
+        eigenvalue, and the PINN matches the independent value to ${\sim}1\pct$. Conclusion
+        recorded in advance: \emph{only the upper sign is a meaningful PINN output}, and no
+        candidate targets the upper magnitude.
+\end{itemize}
+
+\subsection{The same-GPU reference run}
+\code{runs/full\_confirmation\_gpu.json}: unmodified baseline, unmodified evaluator,
+\code{--mode full --oracle --fold --stability}. Total objective \textbf{1451.79\,s}
+(Table~1/2 404.54\,s, fold 456.02\,s, stability 591.23\,s).
+
+\begin{table}[ht]
+\centering
+\caption{GPU reference run against the paper. Table~1/2 and $S_c$ pass at $1\pct$ and
+$3\pct$; Table~3 magnitudes fail; both signs pass.}
+\label{tab:gpuref}
+\small
+\begin{tabular}{@{}llrr@{}}
+\toprule
+\textbf{Quantity} & \textbf{Paper} & \textbf{PINN (GPU)} & \textbf{Rel.\ error} \\
+\midrule
+$C_f$ upper        & 1.93523180 & 1.93516109 & $0.0037\pct$ \\
+$C_f$ lower        & 0.75244081 & 0.75562700 & $0.423\pct$ \\
+$\mathrm{Nu}$ upper & 3.35807824 & 3.35003942 & $0.239\pct$ \\
+$\mathrm{Nu}$ lower & 3.14427924 & 3.13232975 & $0.380\pct$ \\
+$S_c$              & 1.8391     & 1.84910    & $0.543\pct$ \\
+$\alpha_1$ upper   & $+0.8810518$ & $+0.958033$ & $8.74\pct$ \;(\textbf{FAIL}) \\
+$\alpha_1$ lower   & $-0.0376726$ & $-0.488198$ & $1195.9\pct$ \;(\textbf{FAIL}) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The \code{--oracle} cross-check confirms the transcription and the paper's own
+Table~1/2 numbers independently: \code{scipy.solve\_bvp} returns
+$C_f^{\mathrm{up}}=1.93525922$ ($1.4\times10^{-3}\pct$ from the paper),
+$C_f^{\mathrm{low}}=0.75243975$ ($1.4\times10^{-4}\pct$),
+$\mathrm{Nu}^{\mathrm{up}}=3.35133372$ ($0.20\pct$),
+$\mathrm{Nu}^{\mathrm{low}}=3.13525713$ ($0.287\pct$). In other words the oracle is itself
+$0.2$--$0.3\pct$ from the paper's $\mathrm{Nu}$ values, so the PINN's $0.24$--$0.38\pct$
+is at the resolution of the reference, not a PINN deficiency.
+
+\subsection{Candidate lineage}
+Five candidates, each a full copy of the baseline with one recorded change
+(\code{patch.diff}), one hypothesis (\code{NOTE.md}), and its own evaluator outputs. All
+five passed smoke (8.0--11.9\,s) and all five passed the pre-registered full-mode gates.
+
+\begin{table}[ht]
+\centering
+\caption{Candidate lineage, single runs, same GTX 1080 Ti, unmodified evaluator.
+The ``vs baseline'' column is against the 1451.8\,s reference.}
+\label{tab:lineage}
+\small
+\begin{tabular}{@{}llp{5.4cm}rrl@{}}
+\toprule
+\textbf{ID} & \textbf{Parent} & \textbf{Change} & \textbf{Total (s)} & \textbf{Speed-up} & \textbf{Gates} \\
+\midrule
+001 & baseline & Taylor-mode derivative jets instead of nested autograd & 823.5 & 1.76$\times$ & pass \\
+002 & baseline & adaptive LBFGS stop (50-iter chunks, stop at $<1\pct$ gain) & 967.7 & 1.50$\times$ & pass \\
+003 & baseline & collocation $\xi_{\max}$ $0.9995 \to 0.99995$ & 1374.9 & none (same work) & pass\footnotemark[1] \\
+004 & baseline & auto-scale pilot $2500/200 \to 800/100$ & 1230.7 & ${\sim}1.18\times$\footnotemark[2] & pass \\
+\textbf{005} & 001 (+\,2/3/4) & combination of all four mechanisms & \textbf{503.5} & \textbf{2.88$\times$} & pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+\footnotetext[1]{Candidate-003's CPU accuracy gain was \emph{not} reproduced in full mode --- recorded as a negative result rather than dropped.}
+\footnotetext[2]{Within run-to-run noise; single-run stage timings vary ${\sim}15\pct$ (the fold stage, untouched by 003/004, ran 368--387\,s against the reference's 456\,s).}
+
+\paragraph{Candidate-001 (the main mechanism).} Every optimiser step of the baseline builds
+$f',f'',f'''$ (and $\theta',\theta''$, $g',g'',g'''$) with three nested
+\code{torch.autograd.grad(create\_graph=True)} passes and then backpropagates through that
+nested graph. For a $4\times40$ tanh MLP on 300 points this is almost pure kernel-launch
+overhead on a GPU. Candidate-001 propagates the value and its first $k$ $\eta$-derivatives
+forward in closed form (Fa\`a di Bruno through \code{tanh}, Leibniz for the trial-function
+products), giving an identical residual with a much smaller graph. Architecture,
+initialisation, seeds, collocation, iteration counts and optimiser settings are unchanged.
+Verification before any evaluator run: on random weights the jet residuals \emph{and their
+parameter gradients} match baseline autograd to $\leq 2\times10^{-14}$ in float64, and the
+eigen trial-function jet to $\leq 1.1\times10^{-15}$.
+
+\paragraph{Candidate-002.} The LBFGS tolerances ($10^{-12}$ gradient, $10^{-15}$ change)
+never trigger, so every stage burns its full fixed budget. A CPU trace showed momentum
+converges in ${\sim}100$ LBFGS evaluations and energy in ${\sim}200$; the remaining
+${\sim}1700$ and ${\sim}1050$ evaluations move $C_f$/$\mathrm{Nu}$ by $<10^{-5}$ relative.
+The candidate runs the same LBFGS in 50-iteration chunks (history preserved) and stops when
+a chunk improves the loss by $<1\pct$, never exceeding the original budget.
+
+\paragraph{Candidate-003.} $\xi_{\max}=0.9995$ enforces the residual only out to
+$\eta \approx 7.6L$, while the lower branch's slow decay ($\lambda\approx0.77$) still
+matters to $\eta\approx20$. Raising $\xi_{\max}$ to $0.99995$ extends the reach to
+${\sim}13L$. A CPU pre-check showed lower-$C_f$ error against the $\eta_\infty\to\infty$
+oracle falling from $0.19\pct$ to $0.018\pct$ --- but this gain did \emph{not} reproduce in
+full mode, which is recorded explicitly.
+
+\paragraph{Candidate-004.} The pilot only needs $f(\infty)$ to choose
+$L=\lceil\lambda\rceil/\lambda$. A budget sweep ($2500/200$, $1500/100$, $800/100$,
+$400/60$) moved the chosen lower-branch $L$ only within $1.3095$--$1.3111$, so the pilot was
+cut to $800+100$.
+
+\paragraph{Candidate-005.} The four mechanisms act on different things (derivative
+evaluation, LBFGS stopping, collocation reach, pilot budget), so the hypothesis was that the
+gains multiply. Candidate-005 is candidate-001 plus the recorded baseline-relative patches
+of 002, 003 and 004 applied in order; all hunks applied cleanly. The note records the
+discipline that it is only to be trusted because each component passed independently in
+round~1.
+
+\subsection{Winner confirmation}
+The winner was rebuilt from \code{baseline-lock-gpu/baseline/} plus
+\code{candidate-005/patch.diff} and verified byte-identical to the evaluated candidate
+(SHA-256 \code{cae54498\ldots 0661}). Paired full-mode runs were then taken back-to-back on
+the same otherwise-idle GPU (17:49--18:44 UTC, timeline recorded).
+
+\begin{table}[ht]
+\centering
+\caption{Paired same-GPU full-mode runs (\code{--oracle --fold --stability}), unmodified
+evaluator. \textbf{Algorithmic improvement: 2.72$\times$.}}
+\label{tab:paired}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Stage} & \textbf{Baseline (s)} & \textbf{Candidate-005 (s)} & \textbf{Speed-up} \\
+\midrule
+Table 1/2 (both branches, incl.\ pilots) & 392.8 & 158.1 & 2.48$\times$ \\
+Fold / $S_c$                             & 396.4 & 161.9 & 2.45$\times$ \\
+Stability (2 branch solves + 2 eigen)    & 600.7 & 191.7 & 3.13$\times$ \\
+\midrule
+\textbf{Total}                           & \textbf{1389.9} & \textbf{511.6} & \textbf{2.72$\times$} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The hardware effect is reported separately and \emph{not} summed: the Windows-CPU
+smoke lock took 126.8\,s against the GPU smoke lock's 14.8\,s --- different machines, smoke
+mode only.
+
+\begin{table}[ht]
+\centering
+\caption{Accuracy at the search point is unchanged within noise.}
+\label{tab:acc005}
+\small
+\begin{tabular}{@{}lllp{5.2cm}@{}}
+\toprule
+\textbf{Metric} & \textbf{Baseline} & \textbf{Candidate-005} & \textbf{Reference} \\
+\midrule
+$C_f$ upper & 1.935161 ($0.004\pct$) & 1.934442 ($0.041\pct$) & paper 1.93523180 \\
+$C_f$ lower & 0.755627 ($0.42\pct$)  & 0.755643 ($0.43\pct$)  & paper 0.75244081; converged oracle 0.753702 \\
+$\mathrm{Nu}$ upper / lower error & $0.24\pct$ / $0.38\pct$ & $0.27\pct$ / $0.39\pct$ & the oracle is itself $0.20\pct$ / $0.29\pct$ from the paper \\
+$S_c$ & 1.84910 ($0.54\pct$) & 1.84947 ($0.56\pct$) & paper 1.8391 \\
+$\alpha_1$ lower & $-0.48820$ & $-0.48808$ & independent $-0.4938$ (paper $-0.0377$) \\
+$\alpha_1$ upper (sign only) & $0.958$ & $1.051$ & independent leading $0.7358$ (paper $0.881$) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Fresh-parameter check and the honest open item}
+\code{confirm\_fresh.py} was run on candidate-005 at three unseen Table~1 rows over seeds
+1--3 (the search used seed~0 and only the $S{=}1.95$ and $S{=}2.0$ rows). Errors against
+the converged $\eta_\infty{=}40$ oracle: upper $C_f$ $0.03$--$0.21\pct$, all
+$\mathrm{Nu}$ $\leq0.34\pct$, lower $C_f$ $0.04$--$1.00\pct$. Against the paper's own
+Table~1 $C_f$, 16 of 18 points fall within $1\pct$; the two exceptions are the lower branch
+at $S{=}2.1$ (seeds 2 and 3: $1.51\pct$, $1.79\pct$), where \emph{the paper's own value} is
+$0.78\pct$ below the converged oracle --- an $\eta_\infty{=}10$ truncation effect that grows
+as the lower branch decays more slowly.
+
+The session-2 verdict deliberately left one item open rather than overclaiming: whether the
+lower-branch seed spread is inherent to the baseline architecture or was \emph{introduced}
+by candidate-005 was untested, because the standard plan had not run the baseline through
+\code{confirm\_fresh.py}. That comparison was named as the required next step before calling
+005 accuracy-equivalent off the search point.
+
+%=====================================================================
+\section{Session 3 (6 Nov 2026, RTX 2060 SUPER): closing both open items}
+
+The venv was rebuilt from \code{requirements-gpu-cu126.txt} (torch 2.14.1+cu126, scipy
+1.18.1 --- identical to session~2). Because the GPU differs, \emph{no} timing from this
+session is compared with session-2 timings. Both items were pre-registered in
+\code{runs/OPEN-ITEMS-PREREGISTRATION.md} with program hashes verified before running.
+
+\subsection{Item A --- is the lower-branch seed spread candidate-005's fault?}
+\textbf{Pre-registered rule.} Run unmodified \code{confirm\_fresh.py} on both programs,
+seeds 1--3, serially on the same idle GPU (baseline first); 9 (row, seed) points per
+program. Primary metric: lower-branch $C_f$ error against the $\eta_\infty{=}40$ oracle.
+With $m$ and $x$ the mean and max over the nine points, declare \emph{equivalent} if
+$|m_5-m_B|\leq0.20$ percentage points \emph{and} $x_5\leq x_B+0.30$\,pp; \emph{005 worse} or
+\emph{005 better} otherwise. The pre-registration states plainly that $n=9$ per arm detects
+only gross differences, that ``equivalent'' means ``no gross difference detected'' and not
+proof of equality, and that the two programs consume the RNG differently so the points are
+not truly paired.
+
+\textbf{Result: equivalent} on the primary metric and all three secondaries
+(Table~\ref{tab:itemA}). The lower-branch $C_f$ seed spread ($0.03$--$1.0\pct$) is present
+in the \emph{untouched baseline}; candidate-005 did not introduce it.
+
+\begin{table}[ht]
+\centering
+\caption{Item A, errors against the converged oracle over 9 (row, seed) points each,
+RTX 2060 SUPER, job pinned to 4 CPU cores, 04:54--08:12 UTC.}
+\label{tab:itemA}
+\small
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+\textbf{Metric} & \textbf{Baseline mean / max ($\pct$)} & \textbf{005 mean / max ($\pct$)} & \textbf{Verdict} \\
+\midrule
+Lower $C_f$ (\textsc{primary}) & 0.459 / 0.962 & 0.392 / 0.988 & equivalent \\
+Upper $C_f$                    & 0.172 / 0.304 & 0.101 / 0.223 & equivalent \\
+Upper $\mathrm{Nu}$            & 0.058 / 0.156 & 0.090 / 0.183 & equivalent \\
+Lower $\mathrm{Nu}$            & 0.147 / 0.333 & 0.180 / 0.347 & equivalent \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Side findings (informative).} Candidate-005 on this GPU reproduces its
+session-2 (1080 Ti) values to $\leq0.05$\,pp at 8 of 9 points; the ninth
+($S{=}1.95,\beta{=}0.15$, seed~1) differs materially ($0.21\pct$ against $0.67\pct$) with
+the same seed on a different GPU --- i.e.\ GPU-level non-determinism matters at the
+${\sim}0.5$\,pp level on the lower branch. Wall-clock over the nine fresh points on this
+GPU: baseline 7671\,s, 005 4148\,s, ratio 1.85$\times$ (branch solves only, CPU-pinned ---
+explicitly \emph{not} comparable with the 2.72$\times$ full-mode figure).
+
+\subsection{Item B --- building a correct Table~3 oracle}
+\textbf{Pre-registered hypothesis.} On the semi-infinite domain the disturbance problem has
+a continuous spectrum for $\alpha>K$; finite-domain solvers then produce roots that
+accumulate as $L$ grows, and the lowest such root tends to the onset of oscillatory
+far-field decay,
+\begin{equation}
+  \alpha^{*} = K + \frac{f_\infty^2}{4\,(1-\beta f_\infty^2)},
+\end{equation}
+rather than to a discrete eigenvalue. Convergence criteria, the support/refutation
+conditions, and the rule that the PINN's stability stage is never re-tuned against the new
+oracle were all fixed in advance.
+
+\textbf{Deliverable.} \code{oracle-v2/table3\_oracle.py} (the bundled \code{oracle/} stays
+byte-identical), sweeping three methods --- shooting with $g'(L)=0$, corrected Chebyshev,
+and shooting with the exact asymptotic boundary condition --- over
+$L\in\{10,12,16,20,24\}$, $S\in\{2.0,\ldots,2.4\}$ and both branches; ${\sim}25$ minutes on
+CPU. Eq.~(31) was re-checked against the page-10 image: the coded operator is the exact
+linearisation of steady Eq.~(13) with $+\alpha g'$, whereas the \emph{printed} equation drops
+primes (it shows $+2ff''g_0$ and $-2ff''g_0$, which would cancel), so the linearisation is
+taken as the authority.
+
+\begin{table}[ht]
+\centering
+\caption{Table~3 oracle v2 ($\beta{=}0.1$, $K{=}0.1$, $A^{*}{=}0.1$, $\mathrm{Pr}{=}2$,
+$B^{*}{=}0$).}
+\label{tab:oraclev2}
+\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+$S$ & \textbf{Lower $\alpha_1$ (converged)} & \textbf{Paper lower} & \textbf{Upper lowest finite-$L$ root} & $\alpha^{*}$ & \textbf{Paper upper} \\
+\midrule
+2.0 & $-0.49257$ & $-0.0376726$ & 0.7348 (converged) & 0.8205 & 0.8810518 \\
+2.1 & $-0.61135$ & $-0.1290175$ & 1.0493 (converged) & 1.0882 & 1.1498579 \\
+2.2 & $-0.70803$ & $-0.2006274$ & ${\sim}1.39$ ($0.36\pct$ drift $L20\!\to\!24$) & 1.4016 & 1.4609727 \\
+2.3 & $-0.79412$ & $-0.2601093$ & not converged ($1.79\to1.92$) & 1.7828 & 1.8396721 \\
+2.4 & $-0.87670$ & $-0.3115262$ & not converged ($2.28\to2.39$) & 2.2618 & 2.3116364 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{B1 --- the lower branch is converged, and Table~3's lower column does not
+reproduce.} All three methods agree to $<10^{-7}$ relative at every $S$, and the value
+changes by $<10^{-5}$ between $L{=}20$ and $L{=}24$; the pre-registered convergence
+criterion is met at every row. The \emph{sign} agrees with the paper (lower branch
+unstable), but the magnitudes are $2.8\times$ to $13\times$ larger than published. The
+discrepancy is therefore on the paper's side, reproduced from the paper's own Eq.~(31)/(33).
+
+\paragraph{B2 --- the upper-branch hypothesis was refuted, in a way the pre-registration did
+not foresee.} At $S{=}2.0$ and $2.1$ the lowest finite-$L$ root does \emph{not} approach
+$\alpha^{*}$ from above: it is converged ($<0.02\pct$ change over $L{=}16$--$24$) and lies
+\emph{below} $\alpha^{*}$ ($-10\pct$, $-4\pct$). Higher roots do crowd toward $\alpha^{*}$ as
+$L$ grows. The literal refutation condition (``converged and $>2\pct$ \emph{above}
+$\alpha^{*}$'') was not met either --- the outcome was a third case, and this is stated as
+such rather than being retrofitted into the pre-registered dichotomy. Interpretation offered
+but not further tested: for $K<\alpha<\alpha^{*}$ both far-field modes decay monotonically,
+and $g'(L)=0$ at large $L$ forces the slow-decaying mode's coefficient to vanish, so the
+converged root is the ``fast-decay'' eigenvalue; under $g'(\infty)=0$ alone every
+$\alpha>K$ still qualifies. At $S\geq2.2$ neither method converges (Chebyshev becomes
+ill-conditioned for $L\gtrsim16$--$20$, producing spurious $|\alpha|\sim10^{2}$; shooting
+drifts with $L$), so \textbf{no reliable upper magnitude is claimed for $S\geq2.2$}. What is
+robust: every upper candidate root exceeds $K>0$, so the upper branch is stable --- the sign
+agrees with the paper.
+
+\paragraph{B3 --- attribution of the published upper column (informative only).} The bundled
+\code{oracle/ref\_eig\_cheb.py} applies the wall boundary conditions at $\eta=L$ and the
+far-field condition at the wall --- the rows are at swapped ends. At its own default
+$L{=}12$ that placement yields upper values $0.88253$, $1.14325$, $1.45075$, $1.82675$,
+$2.30169$: within $0.17$--$0.70\pct$ of \emph{all five} published Table~3 upper values. The
+same placement gives positive values on the lower branch, so it does not reproduce the lower
+column. This is recorded as \emph{consistent with, but not proof of}, the paper's upper
+column having come from a computation with that boundary placement.
+
+\paragraph{B4 --- energy-disturbance eigenvalues (new, Eq.~32 with $g_0=0$).} Never examined
+before. All finite-$L$ energy eigenvalues are positive (lower branch $0.03$--$0.12$ at
+$L{=}24$, decreasing with $L$), so they change neither sign conclusion. On the upper branch
+at $S\geq2.3$ they fall below the momentum root at $L{=}24$ --- a further reason not to quote
+an upper ``smallest eigenvalue'' magnitude.
+
+\paragraph{Consequence for the PINN.} The PINN's lower-branch $\alpha_1$ at $S{=}2.0$
+(baseline $-0.48820$, candidate-005 $-0.48808$) is within $0.9\pct$ of the converged
+$-0.49257$. The evaluator's Table~3 magnitude gates compare against values this oracle does
+not reproduce. The evaluator was left unedited (program-evolution contract); the oracle-v2
+numbers are recorded as the recommended reference should a new evaluator version ever be
+locked.
+
+%=====================================================================
+\section{Summary of findings}
+
+\subsection{What reproduces}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+  \item \textbf{Table 1 ($C_f$) and Table 2 ($\mathrm{Nu}$)} at the baseline row: upper
+        $C_f$ to $0.004\pct$, lower $C_f$ to $0.42\pct$, $\mathrm{Nu}$ to $0.24$--$0.38\pct$
+        --- the latter at the resolution of the independent oracle, which is itself
+        $0.2$--$0.3\pct$ from the published values.
+  \item \textbf{The critical suction parameter} $S_c = 1.849$ against the published
+        $1.8391$ ($0.54\pct$).
+  \item \textbf{The dual-solution structure and both stability signs}: upper branch stable,
+        lower branch unstable, at every tabulated $S$ and by every method used.
+  \item \textbf{Off-search-point behaviour}: three unseen Table~1 rows over three seeds,
+        upper branch and both $\mathrm{Nu}$ within $0.34\pct$ of the converged oracle.
+\end{itemize}
+
+\subsection{What does not reproduce}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+  \item \textbf{Table 3 eigenvalue magnitudes.} The lower column is off by factors of
+        $2.8$--$13$; three independent solvers of the paper's own Eq.~(31) agree with each
+        other to $<10^{-7}$ relative and not with the paper. The upper column is
+        reproducible to $0.17$--$0.70\pct$ only by a boundary-row placement that is
+        mathematically wrong, and the upper magnitude is in any case not identifiable
+        either by this PINN (continuous spectrum for $\alpha>K$) or reliably by the oracle
+        at $S\geq2.2$.
+  \item \textbf{The signs in Table~2.} The article prints negative values under the heading
+        $\mathrm{Nu}\,\mathrm{Re}_x^{-1/2}$ while defining that quantity as $-\theta'(0)>0$;
+        both the PINN and the independent oracle return positive values of the same
+        magnitude. Verified against page~7; see Section~\ref{sec:beat}.
+  \item \textbf{Candidate-003's claimed accuracy gain.} A real CPU-level improvement
+        ($0.19\pct\to0.018\pct$ lower-$C_f$ error at a 300-iteration cap) that did not
+        survive full-mode evaluation.
+  \item \textbf{The session-1 CPU full-mode run.} Never completed; the output file is empty
+        and is documented as empty.
+\end{itemize}
+
+\subsection{What was improved}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+  \item \textbf{2.72$\times$ end-to-end same-GPU speed-up} (1389.9\,s $\to$ 511.6\,s) from
+        candidate-005, with accuracy unchanged at the search point and
+        \emph{equivalent} --- under a pre-registered rule --- on unseen rows and seeds.
+        Stage-level: $2.48\times$ (Table~1/2), $2.45\times$ (fold), $3.13\times$
+        (stability).
+  \item The dominant mechanism is \textbf{replacing three nested autograd passes with
+        closed-form Taylor-mode derivative jets}, verified gradient-identical to
+        $2\times10^{-14}$ before evaluation; the rest comes from adaptive LBFGS stopping and
+        a cheaper $L_{\mathrm{MAP}}$ pilot.
+  \item A \textbf{corrected, converged Table~3 oracle} now exists where none did, including
+        the previously unexamined energy-disturbance spectrum.
+\end{itemize}
+
+%=====================================================================
+\section{Did this work beat the article?}
+\label{sec:beat}
+
+The honest verdict is \textbf{partial, and the partition is sharp}: this work
+\emph{supersedes} the article on its stability table and provides a better numerical
+reference for its flow tables, while the article remains ahead on raw computational cost
+and on breadth of parameter coverage. The two claims should not be traded against each
+other, and the speed figure reported in Section~6 is \emph{not} a claim against the paper's
+method.
+
+\begin{table}[ht]
+\centering
+\caption{Axis-by-axis comparison against Pandey \textit{et al.}}
+\label{tab:beat}
+\small
+\begin{tabular}{@{}p{3.9cm}p{3.7cm}p{4.3cm}p{3.0cm}@{}}
+\toprule
+\textbf{Axis} & \textbf{The article} & \textbf{This work} & \textbf{Verdict} \\
+\midrule
+Stability eigenvalue magnitudes (Table~3)
+  & Published to 7 decimals; not recoverable from its own Eq.~(31)
+  & Converged values by three independent methods, agreeing to $<10^{-7}$
+  & \textbf{superseded} \\
+Energy-disturbance spectrum (Eq.~32)
+  & Not examined
+  & Computed; all eigenvalues positive, no sign change
+  & \textbf{new} \\
+Far-field reference for Tables~1/2
+  & $\eta_\infty = 10$ truncation
+  & Converged $\eta_\infty = 40$ oracle
+  & \textbf{improved} \\
+Table~1/2 values themselves
+  & 8 significant figures
+  & PINN within $0.004$--$0.42\pct$
+  & matched, not beaten \\
+Internal consistency of Table~2
+  & Signs contradict the paper's own definition
+  & Inconsistency identified and verified
+  & \textbf{defect found} \\
+Compute per parameter point
+  & RK4 $+$ secant: milliseconds
+  & 511.6\,s for the full three-stage pipeline
+  & \textbf{article wins} \\
+Parameter coverage and physical interpretation
+  & Dense grids, 14 figures, Section-6 synthesis
+  & One gated row, $S_c$, $S{=}2.0$ stability, 3 unseen rows
+  & \textbf{article wins} \\
+Auditability of the record
+  & Printed tables
+  & Hashes, locks, pre-registrations, raw sweeps, negative results
+  & \textbf{this work} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Where this work supersedes the article}
+Table~3 is the one place where the article's published numbers are shown to be wrong rather
+than merely imprecise. Three independent solves of the paper's \emph{own} Eq.~(31) --- IVP
+shooting with $g'(L)=0$, a corrected Chebyshev discretisation, and shooting with the exact
+asymptotic boundary condition --- agree with one another to $<10^{-7}$ relative at every
+tabulated $S$ and change by $<10^{-5}$ between $L{=}20$ and $L{=}24$, while differing from
+the published lower-branch column by factors of $2.8$ to $13$ (Table~\ref{tab:oraclev2}).
+No correct solver can land within $1\pct$ of $-0.0376726$ at $S{=}2.0$. The qualitative
+conclusion the article draws from Table~3 --- upper branch stable, lower branch unstable at
+every $S$ --- is unaffected: every method reproduces both signs. What does not survive is
+the quantitative column.
+
+Two further contributions have no counterpart in the article: a mechanical candidate
+explanation for how the published \emph{upper} column could have arisen (a boundary-row
+placement that is mathematically wrong but reproduces all five values to within $0.70\pct$),
+and the first computation of the energy-disturbance spectrum of Eq.~(32), which turns out to
+be everywhere positive and therefore to change neither sign conclusion --- while also
+showing that on the upper branch at $S\geq2.3$ it falls \emph{below} the momentum root, one
+more reason the article's upper magnitudes should not be quoted.
+
+\subsection{Where this work improves the article's numbers without overturning them}
+The article truncates the far field at $\eta_\infty = 10$. The converged $\eta_\infty = 40$
+oracle built here shows what that costs on the slowly-decaying lower branch: the published
+lower $C_f$ is $0.17\pct$ below the converged value at $S{=}1.95$ and $0.78\pct$ below it at
+$S{=}2.1$, with the gap growing as the branch decays more slowly. On $\mathrm{Nu}$ the
+oracle sits $0.20\pct$ (upper) and $0.29\pct$ (lower) from the published values. The
+practical consequence is that the article's own tables --- not the PINN --- are the limiting
+reference: the PINN's $0.24$--$0.38\pct$ agreement on $\mathrm{Nu}$ is at the resolution of
+the best available independent solve, so no finer comparison is meaningful. The PINN itself
+is therefore a faithful reproduction, not an improvement, of Tables~1 and~2; the
+\emph{oracle} is the improvement.
+
+\subsection{A verified internal inconsistency in Table~2}
+The article defines $\mathrm{Nu}\,\mathrm{Re}_x^{-1/2} = -\theta'(0)$ (Section~3), and with
+$\theta(0)=1$, $\theta(\infty)=0$ this is positive for the cooling wall considered. Page~7,
+Table~2, nevertheless prints \emph{negative} values under the heading
+$\mathrm{Nu}\,\mathrm{Re}_x^{-1/2}$: the baseline row
+($S{=}1.95$, $K{=}0.1$, $\beta{=}0.1$, $\mathrm{Pr}{=}2$, $A^{*}{=}B^{*}{=}0.1$) reads
+$-3.35807824$ and $-3.14427924$, and every row in the table carries the same sign.
+Both the PINN and the independent \code{scipy.solve\_bvp} oracle return $+3.350$ and
+$+3.132$ --- magnitudes that agree to $0.2$--$0.4\pct$. The table therefore appears to
+tabulate $\theta'(0)$ while labelling it $-\theta'(0)$; it is a presentational slip, not a
+numerical error, and the figures on the same page (Figs.~9--10, plotted on positive axes)
+are consistent with the positive convention. It is recorded here because a reader copying
+Table~2 verbatim would carry the wrong sign into downstream work. The evaluator gates on
+magnitude, so nothing in this project is affected. This was verified directly against
+page~7 of the archived copy whose SHA-256 is recorded in Table~\ref{tab:prov}.
+
+\subsection{Where the article still wins}
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+  \item \textbf{Computational cost.} The article's shooting method (RK4, $\Delta\eta=0.01$,
+        secant to $10^{-5}$) solves a branch in milliseconds. The fastest program produced
+        here needs 511.6\,s for the full three-stage pipeline. The $2.72\times$ reported in
+        Section~6 is measured against the supplied PINN baseline on identical hardware and
+        says nothing about the paper's own solver; a PINN was never going to win that
+        comparison, and nothing in this record claims it does. The case for the PINN is
+        that it imposes the far-field conditions exactly, passes smoothly through the
+        turning point, and provides a third independent route to the same claims --- not
+        that it is cheap.
+  \item \textbf{Breadth.} The article sweeps dense grids in $S$, $K$, $\beta$,
+        $\mathrm{Pr}$, $A^{*}$ and $B^{*}$, with fourteen figures and a synthesis of the
+        physical mechanisms. This project gates one parameter row, plus $S_c$, plus the
+        $S{=}2.0$ stability row, with three unseen rows over three seeds as confirmation.
+        The qualitative conclusions of the article's Section~6 were transcribed as
+        constraints to protect, never independently re-derived across the full grid.
+  \item \textbf{Physical interpretation.} No claim about the physics of the Maxwell
+        shrinking-sheet problem originates here.
+\end{itemize}
+
+\subsection{What would actually constitute beating it}
+Two things, neither yet done:
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+  \item \textbf{Publish the Table~3 correction.} The evidence is complete and preserved ---
+        three agreeing methods, domain-length studies, pre-registered criteria applied
+        mechanically, and a candidate attribution for the published upper column. What is
+        missing is the write-up and the courtesy of putting it to the authors; the article
+        is an uncorrected proof, so the window for a correction may still be open.
+  \item \textbf{Execute the D-track} (Section~4.3, \code{candidate-mechanisms.md}). A single
+        parametric network $f(\eta; S,\beta,K)$, $\theta(\eta; S,\beta,K,\mathrm{Pr},A^{*},B^{*})$
+        would reproduce the entire Table~1/2 sweep from one training run and extend past it
+        --- including the non-existence region below $S_c$, which the article maps only by
+        where its solver stops converging. Differentiating that network with respect to $S$
+        gives continuous fold-tracking and a continuous $\alpha_1(S)$, which would verify as
+        \emph{one} claim that the turning point and the stability-exchange point coincide.
+        The article asserts this through two separate tables and never checks it. That is
+        the result that would be beyond the paper rather than alongside it, and it needs
+        held-out $(S,\beta,K)$ points and its own evaluator, not a candidate folder.
+\end{enumerate}
+
+%=====================================================================
+\section{Methodological discipline actually followed}
+
+This is a large part of the value of the record and is worth stating explicitly:
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+  \item \textbf{Pre-registration before results.} Three pre-registration documents
+        (\code{GPU-SEARCH-PREREGISTRATION.md}, \code{OPEN-ITEMS-PREREGISTRATION.md}, and the
+        \code{oracle-v2} criteria mechanically applied by \code{judge.py} into
+        \code{judge.md}) fix acceptance rules, thresholds and convergence criteria in
+        advance. When an outcome fell outside the foreseen cases (Item~B upper branch), that
+        is reported as such rather than reinterpreted.
+  \item \textbf{The evaluator was never edited}, not even when two of its gates were proven
+        unmeetable by any correct solver. The gates are reported, excluded from acceptance
+        with a documented reason, and the corrected reference values are recorded for a
+        future locked evaluator version.
+  \item \textbf{No cross-hardware timing claims.} CPU and GPU numbers are reported
+        separately and never summed; session-3 timings are never compared with session~2's
+        because the GPU differs; the $1.85\times$ fresh-row ratio is explicitly marked as
+        not comparable with the $2.72\times$ full-mode figure.
+  \item \textbf{Hash-verified reconstruction.} The winner was rebuilt from the locked
+        baseline plus its recorded patch and verified byte-identical before confirmation.
+  \item \textbf{Paired, idle-machine, serial measurement} with recorded timelines,
+        \code{nvidia-smi} output, environment dumps and SHA-256 manifests next to every run.
+  \item \textbf{Smoke runs are never reported as reproduction.} Stated in the evaluator
+        docstring, the project notes, and the skill.
+  \item \textbf{Negative and null results are kept} --- candidate-003's non-reproducing
+        gain, candidate-004's within-noise speed-up, the dead CPU run, the refuted
+        spectrum hypothesis.
+  \item \textbf{Honest statistical limits.} ``Equivalent'' is defined as ``no gross
+        difference detected at $n=9$'', not as equality; the non-pairing of seeds across the
+        two programs is noted.
+  \item \textbf{Source material untouched.} Zero modified files against upstream; all new
+        work in two clearly separated directories.
+\end{enumerate}
+
+%=====================================================================
+\section{Evidence inventory}
+
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{7.0cm}>{\raggedright\arraybackslash}p{8.7cm}@{}}
+\caption{Principal artifacts under
+\code{initiatives/maxwell-shrinking-pinn/}
+\code{projects/pinn-reproduction/}.}\label{tab:inventory}\\
+\toprule
+\textbf{Path} & \textbf{Content} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Path} & \textbf{Content} \\
+\midrule
+\endhead
+\code{../BRIEF.md} & Original request, provenance hashes, desired outcome, constraints \\
+\code{NOTES.md} & Methodology, per-session status, limitations, reproduction commands \\
+\code{paper/paper-summary.md} & Transcribed equations, BCs, Tables 1--3 with gate markings, Section-6 conclusions \\
+\code{paper/}\allowbreak\code{pagination\_FINMEC\_100352-1.pdf} & Read-only copy of the source PDF \\
+\code{baseline/pinn\_maxwell\_shrinking.py} & Unmodified three-stage PINN (the program to evolve) \\
+\code{oracle/reference\_bvp.py} & Independent \code{scipy.solve\_bvp} ground truth (unmodified) \\
+\code{oracle/ref\_eig\_cheb.py} & Independent Chebyshev eigenvalue solver (unmodified; BC rows at swapped ends) \\
+\code{evaluator.py} & Candidate-proof evaluator; smoke/full modes, \code{--fold}, \code{--stability}, \code{--oracle} \\
+\code{baseline-lock/}, \code{baseline-lock-gpu/} & Hash-locked baseline $+$ evaluator snapshots, CPU and GPU \\
+\code{candidates/candidate-001..005/} & Per-hypothesis folder: \code{NOTE.md}, \code{patch.diff}, full source, \code{smoke.json}, \code{full.json}, stderr logs \\
+\code{candidates/LINEAGE.md} & Lineage table with timings, speed-ups and gate outcomes \\
+\code{runs/full\_confirmation\_gpu.json} & Same-GPU full-mode reference (1451.8\,s) \\
+\code{runs/GPU-SEARCH-PREREGISTRATION.md} & Acceptance rule and the two non-identifiability arguments \\
+\code{runs/GPU-SEARCH-RESULTS.md} & Winner confirmation, paired timings, fresh-parameter check, verdict \\
+\code{runs/confirm-005/} & Paired baseline/winner runs, fresh-seed run, \code{env.txt}, \code{nvidia-smi.txt}, \code{timeline.txt}, run script \\
+\code{runs/OPEN-ITEMS-PREREGISTRATION.md} & Session-3 rules for Items A and B, with program hashes \\
+\code{runs/fresh-paired-2060s/ANALYSIS.md} & Item A result: per-point table, means/maxima, verdict, cross-GPU note \\
+\code{runs/fresh-paired-2060s/analyze.py} & The analysis script that produced it \\
+\code{runs/full\_table12\_confirmation.json} & Session-1 CPU run that never completed (empty, documented) \\
+\code{confirm\_fresh.py} & Unseen-row, multi-seed confirmation harness \\
+\code{diagnostics/eig\_shooting.*}, \code{eig\_cheb\_fixed.*} & Independent eigenvalue solves with domain-length studies (code $+$ output) \\
+\code{oracle-v2/} & Corrected Table~3 oracle: solver, raw JSON, \code{judge.py}/\code{judge.md}, \code{README.md} with the full table \\
+\code{../../../skill-lab/}\allowbreak\code{evolve-maxwell-pinn-gpu/} & \code{SKILL.md} and \code{references/candidate-mechanisms.md} (14 mechanisms, A--D) \\
+\bottomrule
+\end{longtable}
+
+\subsection{Commit history}
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{@{}llp{9.6cm}@{}}
+\toprule
+\textbf{Commit} & \textbf{Date} & \textbf{Subject} \\
+\midrule
+\code{9ee93bc} & 2026-11-05 & Maxwell shrinking-sheet PINN: Open Discovery GPU reproduction and candidate search \\
+\code{d5fd1ba} & 2026-11-05 & Confirm candidate-005: 2.72$\times$ same-GPU speed-up; record results and lineage \\
+\code{2e1be62} & 2026-11-06 & Session 3: pre-register open items; Table~3 oracle v2; start paired fresh-seed runs \\
+\code{68b53ec} & 2026-11-06 & Sync: paired fresh-seed run progress (baseline seeds on 2060 SUPER) \\
+\code{4385559} & 2026-11-06 & Sync: candidate-005 fresh-seed run progress (2060 SUPER) \\
+\code{30c62ea} & 2026-11-06 & Close open items: baseline vs 005 fresh-seed spread equivalent; Table~3 oracle v2 results \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The 6.7\,GB GPU venv is excluded from version control; \code{open-discovery}'s own
+upstream history is preserved as \code{open-discovery/.git-upstream} (rename back to
+\code{.git} to restore it as a standalone checkout).
+
+%=====================================================================
+\section{How to reproduce}
+
+\begin{verbatim}
+# environment (GPU; keeps sm_61 kernels for a GTX 1080 Ti)
+uv pip install -r amit-pinn-article/requirements-gpu-cu126.txt \
+  --extra-index-url https://download.pytorch.org/whl/cu126
+
+cd amit-pinn-article/open-discovery/initiatives/maxwell-shrinking-pinn/\
+projects/pinn-reproduction
+
+# cheap pipeline sanity gate (~15 s GPU, ~127 s CPU)
+python evaluator.py baseline/pinn_maxwell_shrinking.py
+
+# the actual paper-accuracy claim (~1450 s on a 1080 Ti for all three stages)
+python evaluator.py baseline/pinn_maxwell_shrinking.py \
+  --mode full --oracle --fold --stability
+
+# unseen-row, multi-seed confirmation
+python confirm_fresh.py baseline/pinn_maxwell_shrinking.py 1 2 3
+
+# rebuild the winner from the locked baseline + its recorded patch
+cp baseline-lock-gpu/baseline/pinn_maxwell_shrinking.py /tmp/c005.py
+patch /tmp/c005.py < candidates/candidate-005/patch.diff
+
+# corrected Table 3 oracle (~25 min, CPU)
+python oracle-v2/table3_oracle.py && python oracle-v2/judge.py
+
+# independent eigenvalue diagnostics
+python diagnostics/eig_shooting.py
+python diagnostics/eig_cheb_fixed.py
+
+# re-lock after any intentional change to baseline/ or evaluator.py
+python ../../../../program-evolution/scripts/lock_baseline.py \
+  --baseline baseline/pinn_maxwell_shrinking.py --evaluator evaluator.py \
+  --goal "<state the goal>" --output baseline-lock-v2 --timeout-seconds 1800
+\end{verbatim}
+
+%=====================================================================
+\section{Status, limitations and possible next steps}
+
+\paragraph{Status.} \textbf{Reproduction complete to the extent the paper allows}, with no
+open items. Tables~1 and~2 and $S_c$ reproduce; Table~3 signs reproduce and magnitudes do
+not, with the discrepancy localised to the paper side and evidenced by three independent
+solvers. Candidate-005 is confirmed $2.72\times$ faster on the same GPU and
+accuracy-equivalent to the baseline.
+
+\paragraph{Limitations to carry forward.}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+  \item The evaluator still carries two Table~3 magnitude gates that no correct solver can
+        pass, so \code{valid=false} on \emph{every} full-mode run including the untouched
+        baseline. Any future locked evaluator version should adopt the oracle-v2 reference
+        values.
+  \item The lower-branch $C_f$ shows a ${\sim}0.03$--$1.0\pct$ seed spread against the
+        converged oracle. This is inherent to the baseline architecture, not to any
+        candidate, and is partly GPU-level non-determinism (${\sim}0.5$\,pp at identical
+        seeds across devices).
+  \item No reliable upper-branch $\alpha_1$ magnitude exists at $S\geq2.2$ by any method
+        used here.
+  \item All accuracy gates are at a single parameter point; $n=9$ off-search-point checks
+        detect only gross differences.
+  \item Mechanisms A1 (batching both branches via \code{vmap}), A4 (Adam/LBFGS rebalance),
+        A5 (vectorising the fold continuation loop) and A6 (larger collocation batches)
+        from the mechanism menu remain untried.
+\end{itemize}
+
+\paragraph{Possible next steps.} The D-track in
+\code{references/candidate-mechanisms.md} is genuinely new science beyond the paper and
+would require a \emph{new project} with its own evaluator and held-out $(S,\beta,K)$ grid
+points: a parametric/meta-PINN $f(\eta;S,\beta,K)$ reproducing the entire Table~1/2 sweep in
+one training run (and mapping the non-existence region below $S_c$); continuous
+fold-tracking by differentiating that network with respect to $S$; parametric stability
+producing a continuous $\alpha_1(S)$ and locating $\alpha_1=0$ directly, which would check
+as \emph{one continuous claim} that the turning point and the stability-exchange point
+coincide --- something the paper asserts through separate tables but never verifies; and a
+small multi-seed ensemble reporting $C_f$/$\mathrm{Nu}$ spread as a robustness companion.
+
+\vspace{1em}
+\noindent\rule{\textwidth}{0.4pt}
+
+\paragraph{A note on scope.} This initiative is a reproduction plus
+harness-and-optimisation study. It asserts no new claim about the physics of the Maxwell
+shrinking-sheet problem. The one finding with implications beyond the harness --- that
+Table~3's eigenvalue magnitudes are not recoverable from the paper's own Eq.~(31), while a
+specific incorrect boundary-row placement does recover its upper column to within
+$0.7\pct$ --- is stated as evidence, with the raw sweeps, three independent methods, and
+pre-registered criteria preserved so a reader can judge it independently.
+
+\end{document}
